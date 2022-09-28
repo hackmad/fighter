@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use bevy::{prelude::*, render::texture::ImageSettings, window::PresentMode};
 use std::ops::Add;
 
@@ -50,12 +51,14 @@ fn main() {
 }
 
 /// Player number
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum PlayerNumber {
     One,
     Two,
 }
 
 /// Player state
+#[derive(Copy, Clone, Debug, PartialEq)]
 enum PlayerState {
     Attacking,
     Dying,
@@ -65,19 +68,44 @@ enum PlayerState {
     Running,
     TakingHit,
 }
+impl Default for PlayerState {
+    fn default() -> Self {
+        Self::Idling
+    }
+}
+
+/// Represents player's current state.
+#[derive(Component, Default, Deref, DerefMut)]
+struct PlayerCurrentState(PlayerState);
+impl PlayerCurrentState {
+    fn set_state(&mut self, state: PlayerState) {
+        self.0 = state;
+    }
+    fn set_from_previous(&mut self, state: &PlayerPreviousState) {
+        self.0 = state.0;
+    }
+}
+
+/// Represents player's previous state.
+#[derive(Component, Default, Deref, DerefMut)]
+struct PlayerPreviousState(PlayerState);
+impl PlayerPreviousState {
+    fn set_state(&mut self, state: PlayerState) {
+        self.0 = state;
+    }
+    fn set_from_current(&mut self, state: &PlayerCurrentState) {
+        self.0 = state.0;
+    }
+}
 
 /// Represents the player.
 #[derive(Component)]
 struct Player {
     number: PlayerNumber,
-    state: PlayerState,
 }
 impl Player {
     fn new(number: PlayerNumber) -> Self {
-        Self {
-            number,
-            state: PlayerState::Idling,
-        }
+        Self { number }
     }
 }
 
@@ -95,6 +123,7 @@ struct Keys {
     left: KeyCode,
     right: KeyCode,
     jump: KeyCode,
+    attack: KeyCode,
 }
 
 /// Represents the shop sprite.
@@ -156,6 +185,8 @@ fn setup(
     commands
         .spawn()
         .insert(Player::new(PlayerNumber::One))
+        .insert(PlayerCurrentState::default())
+        .insert(PlayerPreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
         .insert(GroundY(sprite_pos.y))
         .insert_bundle(SpriteSheetBundle {
@@ -175,6 +206,7 @@ fn setup(
             left: KeyCode::A,
             right: KeyCode::D,
             jump: KeyCode::W,
+            attack: KeyCode::S,
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 
@@ -195,6 +227,8 @@ fn setup(
     commands
         .spawn()
         .insert(Player::new(PlayerNumber::Two))
+        .insert(PlayerCurrentState::default())
+        .insert(PlayerPreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
         .insert(GroundY(sprite_pos.y))
         .insert_bundle(SpriteSheetBundle {
@@ -214,6 +248,7 @@ fn setup(
             left: KeyCode::Left,
             right: KeyCode::Right,
             jump: KeyCode::Up,
+            attack: KeyCode::Down,
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 }
@@ -275,59 +310,22 @@ fn shop_animation_system(
     }
 }
 
-/// Returns the next frame for player sprite.
-fn next_player_sprite_frame(mut current: usize, min: usize, max: usize) -> usize {
-    if current < min || current > max {
-        // Out of bounds for current player state. Reset to min.
-        min
-    } else {
-        current = current + 1;
-        if current > max {
-            min
-        } else {
-            current
-        }
-    }
-}
-
-/// Animate the player sprite.
-fn player_animation_system(
-    time: Res<Time>,
-    mut query: Query<(&Player, &mut AnimationTimer, &mut TextureAtlasSprite)>,
-) {
-    for (player, mut timer, mut sprite) in &mut query {
-        timer.tick(time.delta());
-        if timer.just_finished() {
-            sprite.index = match player.number {
-                PlayerNumber::One => match player.state {
-                    PlayerState::Attacking => next_player_sprite_frame(sprite.index, 0, 5),
-                    PlayerState::Dying => next_player_sprite_frame(sprite.index, 16, 21),
-                    PlayerState::Falling => next_player_sprite_frame(sprite.index, 24, 25),
-                    PlayerState::Idling => next_player_sprite_frame(sprite.index, 32, 39),
-                    PlayerState::Jumping => next_player_sprite_frame(sprite.index, 40, 41),
-                    PlayerState::Running => next_player_sprite_frame(sprite.index, 48, 55),
-                    PlayerState::TakingHit => next_player_sprite_frame(sprite.index, 64, 67),
-                },
-                PlayerNumber::Two => match player.state {
-                    PlayerState::Attacking => next_player_sprite_frame(sprite.index, 0, 3),
-                    PlayerState::Dying => next_player_sprite_frame(sprite.index, 16, 22),
-                    PlayerState::Falling => next_player_sprite_frame(sprite.index, 24, 25),
-                    PlayerState::Idling => next_player_sprite_frame(sprite.index, 32, 35),
-                    PlayerState::Jumping => next_player_sprite_frame(sprite.index, 40, 41),
-                    PlayerState::Running => next_player_sprite_frame(sprite.index, 48, 55),
-                    PlayerState::TakingHit => next_player_sprite_frame(sprite.index, 56, 58),
-                },
-            };
-        }
-    }
-}
-
 /// Handle play input.
 fn player_input_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Player, &Keys, &Transform, &GroundY, &mut Velocity)>,
+    mut query: Query<(
+        &Player,
+        &mut PlayerCurrentState,
+        &mut PlayerPreviousState,
+        &Keys,
+        &Transform,
+        &GroundY,
+        &mut Velocity,
+    )>,
 ) {
-    for (_player, keys, transform, ground_y, mut velocity) in query.iter_mut() {
+    for (_player, mut current_state, mut previous_state, keys, transform, ground_y, mut velocity) in
+        query.iter_mut()
+    {
         // Move left as long as left key is pressed.
         if keyboard_input.pressed(keys.left) {
             velocity.x = -HORIZ_VELOCITY;
@@ -348,18 +346,28 @@ fn player_input_system(
                 velocity.y = JUMP_VELOCITY;
             }
         }
+
+        // Attack.
+        if keyboard_input.pressed(keys.attack) && current_state.0 != PlayerState::Attacking {
+            previous_state.set_from_current(&current_state);
+            current_state.set_state(PlayerState::Attacking);
+        }
     }
 }
 
 /// Handle player movement based on velocity.
 fn player_movement_system(
-    mut query: Query<(&mut Player, &mut Transform, &GroundY, &mut Velocity)>,
+    mut query: Query<(
+        &Player,
+        &mut PlayerCurrentState,
+        &mut Transform,
+        &GroundY,
+        &mut Velocity,
+    )>,
 ) {
-    for (mut player, mut transform, ground_y, mut velocity) in &mut query {
-        // Handle horizontal movement.
+    for (_player, mut current_state, mut transform, ground_y, mut velocity) in &mut query {
+        // Handle movement.
         transform.translation.x += velocity.x;
-
-        // Handle vertical movement.
         transform.translation.y += velocity.y;
 
         if transform.translation.y > ground_y.0 {
@@ -371,16 +379,94 @@ fn player_movement_system(
             velocity.y = 0.0;
         }
 
+        // Take care of player state changes.
+        if current_state.0 == PlayerState::Attacking {
+            // Let player finish attacking.
+            return;
+        }
+
+        // Switch to jumping/falling/run/idling state.
         if transform.translation.y > ground_y.0 {
             if velocity.y > 0.0 {
-                player.state = PlayerState::Jumping;
+                current_state.0 = PlayerState::Jumping;
             } else {
-                player.state = PlayerState::Falling;
+                current_state.0 = PlayerState::Falling;
             }
         } else if velocity.x != 0.0 {
-            player.state = PlayerState::Running;
+            current_state.0 = PlayerState::Running;
         } else {
-            player.state = PlayerState::Idling;
+            current_state.0 = PlayerState::Idling;
+        }
+    }
+}
+
+/// Animate the player sprite.
+fn player_animation_system(
+    time: Res<Time>,
+    mut query: Query<(
+        &Player,
+        &mut PlayerCurrentState,
+        &PlayerPreviousState,
+        &mut AnimationTimer,
+        &mut TextureAtlasSprite,
+    )>,
+) {
+    for (player, mut current_state, previous_state, mut timer, mut sprite) in &mut query {
+        timer.tick(time.delta());
+        if timer.just_finished() {
+            let (frame, looped) = player_next_frame(player.number, current_state.0, sprite.index);
+
+            if current_state.0 == PlayerState::Attacking && looped {
+                // Atack finished. Start previous state animation again.
+                current_state.set_from_previous(previous_state);
+                let (frame, _) = player_next_frame(player.number, current_state.0, 0);
+                sprite.index = frame;
+            } else {
+                sprite.index = frame;
+            }
+        }
+    }
+}
+
+/// Gets next animation frame for player.
+fn player_next_frame(
+    player_number: PlayerNumber,
+    state: PlayerState,
+    frame: usize,
+) -> (usize, bool) {
+    match player_number {
+        PlayerNumber::One => match state {
+            PlayerState::Attacking => next_player_sprite_frame(frame, 0, 5),
+            PlayerState::Dying => next_player_sprite_frame(frame, 16, 21),
+            PlayerState::Falling => next_player_sprite_frame(frame, 24, 25),
+            PlayerState::Idling => next_player_sprite_frame(frame, 32, 39),
+            PlayerState::Jumping => next_player_sprite_frame(frame, 40, 41),
+            PlayerState::Running => next_player_sprite_frame(frame, 48, 55),
+            PlayerState::TakingHit => next_player_sprite_frame(frame, 64, 67),
+        },
+        PlayerNumber::Two => match state {
+            PlayerState::Attacking => next_player_sprite_frame(frame, 0, 3),
+            PlayerState::Dying => next_player_sprite_frame(frame, 16, 22),
+            PlayerState::Falling => next_player_sprite_frame(frame, 24, 25),
+            PlayerState::Idling => next_player_sprite_frame(frame, 32, 35),
+            PlayerState::Jumping => next_player_sprite_frame(frame, 40, 41),
+            PlayerState::Running => next_player_sprite_frame(frame, 48, 55),
+            PlayerState::TakingHit => next_player_sprite_frame(frame, 56, 58),
+        },
+    }
+}
+
+/// Returns the next frame for player sprite.
+fn next_player_sprite_frame(mut current: usize, min: usize, max: usize) -> (usize, bool) {
+    if current < min || current > max {
+        // Out of bounds for current player state. Reset to min.
+        (min, false)
+    } else {
+        current = current + 1;
+        if current > max {
+            (min, true)
+        } else {
+            (current, false)
         }
     }
 }
