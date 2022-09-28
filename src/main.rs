@@ -50,14 +50,14 @@ fn main() {
         .run();
 }
 
-/// Player number
+/// Player number.
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum PlayerNumber {
     One,
     Two,
 }
 
-/// Player state
+/// Player states.
 #[derive(Copy, Clone, Debug, PartialEq)]
 enum PlayerState {
     Attacking,
@@ -74,30 +74,6 @@ impl Default for PlayerState {
     }
 }
 
-/// Represents player's current state.
-#[derive(Component, Default, Deref, DerefMut)]
-struct PlayerCurrentState(PlayerState);
-impl PlayerCurrentState {
-    fn set_state(&mut self, state: PlayerState) {
-        self.0 = state;
-    }
-    fn set_from_previous(&mut self, state: &PlayerPreviousState) {
-        self.0 = state.0;
-    }
-}
-
-/// Represents player's previous state.
-#[derive(Component, Default, Deref, DerefMut)]
-struct PlayerPreviousState(PlayerState);
-impl PlayerPreviousState {
-    fn set_state(&mut self, state: PlayerState) {
-        self.0 = state;
-    }
-    fn set_from_current(&mut self, state: &PlayerCurrentState) {
-        self.0 = state.0;
-    }
-}
-
 /// Represents the player.
 #[derive(Component)]
 struct Player {
@@ -106,6 +82,30 @@ struct Player {
 impl Player {
     fn new(number: PlayerNumber) -> Self {
         Self { number }
+    }
+}
+
+/// Represents player's current state.
+#[derive(Component, Default, Deref, DerefMut)]
+struct CurrentState(PlayerState);
+impl CurrentState {
+    fn set_state(&mut self, state: PlayerState) {
+        self.0 = state;
+    }
+    fn set_from_previous(&mut self, state: &PreviousState) {
+        self.0 = state.0;
+    }
+}
+
+/// Represents player's previous state.
+#[derive(Component, Default, Deref, DerefMut)]
+struct PreviousState(PlayerState);
+impl PreviousState {
+    fn set_state(&mut self, state: PlayerState) {
+        self.0 = state;
+    }
+    fn set_from_current(&mut self, state: &CurrentState) {
+        self.0 = state.0;
     }
 }
 
@@ -185,8 +185,8 @@ fn setup(
     commands
         .spawn()
         .insert(Player::new(PlayerNumber::One))
-        .insert(PlayerCurrentState::default())
-        .insert(PlayerPreviousState::default())
+        .insert(CurrentState::default())
+        .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
         .insert(GroundY(sprite_pos.y))
         .insert_bundle(SpriteSheetBundle {
@@ -227,8 +227,8 @@ fn setup(
     commands
         .spawn()
         .insert(Player::new(PlayerNumber::Two))
-        .insert(PlayerCurrentState::default())
-        .insert(PlayerPreviousState::default())
+        .insert(CurrentState::default())
+        .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
         .insert(GroundY(sprite_pos.y))
         .insert_bundle(SpriteSheetBundle {
@@ -315,8 +315,8 @@ fn player_input_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(
         &Player,
-        &mut PlayerCurrentState,
-        &mut PlayerPreviousState,
+        &mut CurrentState,
+        &mut PreviousState,
         &Keys,
         &Transform,
         &GroundY,
@@ -359,7 +359,7 @@ fn player_input_system(
 fn player_movement_system(
     mut query: Query<(
         &Player,
-        &mut PlayerCurrentState,
+        &mut CurrentState,
         &mut Transform,
         &GroundY,
         &mut Velocity,
@@ -405,8 +405,8 @@ fn player_animation_system(
     time: Res<Time>,
     mut query: Query<(
         &Player,
-        &mut PlayerCurrentState,
-        &PlayerPreviousState,
+        &mut CurrentState,
+        &PreviousState,
         &mut AnimationTimer,
         &mut TextureAtlasSprite,
     )>,
