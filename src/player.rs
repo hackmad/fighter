@@ -92,6 +92,10 @@ struct Keys {
 #[derive(Component)]
 struct Collider;
 
+/// Represents the attack box for testing with colliders.
+#[derive(Component)]
+struct AttackBox;
+
 /// Setup the players.
 fn setup(
     mut commands: Commands,
@@ -118,6 +122,8 @@ fn setup(
     let pos = Vec3::new(-300.0, GROUND_Y, 0.2);
     let sprite_pos = pos.add(Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.21));
     let collider_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.22));
+    let attack_box_pos = pos.add(Vec3::new(37.0 * PLAYER_SCALE, 50.0 * PLAYER_SCALE, 0.23));
+    let (attack_box_w, attack_box_h) = (105.0, 25.0);
 
     commands
         .spawn()
@@ -152,6 +158,7 @@ fn setup(
         .spawn()
         .insert(Collider)
         .insert(Number::One)
+        .insert(GroundY(collider_pos.y))
         .insert_bundle(MaterialMesh2dBundle {
             mesh: meshes.add(shape::Box::new(30.0, 55.0, 0.1).into()).into(),
             material: materials.add(ColorMaterial::from(Color::rgba(
@@ -161,6 +168,29 @@ fn setup(
                 COLLIDER_ALPHA,
             ))),
             transform: Transform::from_translation(collider_pos).with_scale(Vec3::new(
+                PLAYER_SCALE,
+                PLAYER_SCALE,
+                1.0,
+            )),
+            ..default()
+        });
+
+    commands
+        .spawn()
+        .insert(AttackBox)
+        .insert(Number::One)
+        .insert(GroundY(attack_box_pos.y))
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes
+                .add(shape::Box::new(attack_box_w, attack_box_h, 0.1).into())
+                .into(),
+            material: materials.add(ColorMaterial::from(Color::rgba(
+                1.0,
+                1.0,
+                0.0,
+                COLLIDER_ALPHA,
+            ))),
+            transform: Transform::from_translation(attack_box_pos).with_scale(Vec3::new(
                 PLAYER_SCALE,
                 PLAYER_SCALE,
                 1.0,
@@ -182,6 +212,8 @@ fn setup(
     let pos = Vec3::new(300.0, GROUND_Y, 0.2);
     let sprite_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.21));
     let collider_pos = pos.add(Vec3::new(-3.0 * PLAYER_SCALE, 29.0 * PLAYER_SCALE, 0.22));
+    let attack_box_pos = pos.add(Vec3::new(-37.0 * PLAYER_SCALE, 40.0 * PLAYER_SCALE, 0.23));
+    let (attack_box_w, attack_box_h) = (95.0, 35.0);
 
     commands
         .spawn()
@@ -216,6 +248,7 @@ fn setup(
         .spawn()
         .insert(Collider)
         .insert(Number::Two)
+        .insert(GroundY(collider_pos.y))
         .insert_bundle(MaterialMesh2dBundle {
             mesh: meshes.add(shape::Box::new(25.0, 58.0, 0.1).into()).into(),
             material: materials.add(ColorMaterial::from(Color::rgba(
@@ -225,6 +258,29 @@ fn setup(
                 COLLIDER_ALPHA,
             ))),
             transform: Transform::from_translation(collider_pos).with_scale(Vec3::new(
+                PLAYER_SCALE,
+                PLAYER_SCALE,
+                1.0,
+            )),
+            ..default()
+        });
+
+    commands
+        .spawn()
+        .insert(AttackBox)
+        .insert(Number::Two)
+        .insert(GroundY(attack_box_pos.y))
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes
+                .add(shape::Box::new(attack_box_w, attack_box_h, 0.1).into())
+                .into(),
+            material: materials.add(ColorMaterial::from(Color::rgba(
+                0.0,
+                1.0,
+                1.0,
+                COLLIDER_ALPHA,
+            ))),
+            transform: Transform::from_translation(attack_box_pos).with_scale(Vec3::new(
                 PLAYER_SCALE,
                 PLAYER_SCALE,
                 1.0,
@@ -309,11 +365,18 @@ fn movement_system(
             &GroundY,
             &mut Velocity,
         ),
-        (With<Player>, Without<Collider>),
+        (With<Player>, Without<Collider>, Without<AttackBox>),
     >,
-    mut collider_query: Query<(&Number, &mut Transform), (With<Collider>, Without<Player>)>,
+    mut collider_query: Query<
+        (&Number, &mut Transform, &GroundY),
+        (With<Collider>, Without<Player>, Without<AttackBox>),
+    >,
+    mut attack_box_query: Query<
+        (&Number, &mut Transform, &GroundY),
+        (With<AttackBox>, Without<Player>, Without<Collider>),
+    >,
 ) {
-    let mut map: HashMap<Number, (Vec2, f32)> = HashMap::new();
+    let mut map: HashMap<Number, Vec2> = HashMap::new();
 
     for (number, mut current_state, mut transform, ground_y, mut velocity) in &mut player_query {
         // Handle movement.
@@ -345,20 +408,32 @@ fn movement_system(
         }
 
         // Store positions for colliders.
-        map.insert(*number, (Vec2::new(velocity.x, velocity.y), ground_y.0));
+        map.insert(*number, Vec2::new(velocity.x, velocity.y));
     }
 
     // Move collider with same velocity as player.
     //
     // TODO: We might want to adjust collider based on state as the box tends to not be
     // aligned with animations for different states.
-    for (number, mut transform) in &mut collider_query {
-        if let Some((velocity, ground_y)) = map.get(number) {
+    for (number, mut transform, ground_y) in &mut collider_query {
+        if let Some(velocity) = map.get(number) {
             transform.translation.x += velocity.x;
             transform.translation.y += velocity.y;
-            if transform.translation.y <= *ground_y {
+            if transform.translation.y <= ground_y.0 {
                 // Player has hit the ground. Reset velocity and position.
-                transform.translation.y = *ground_y;
+                transform.translation.y = ground_y.0;
+            }
+        }
+    }
+
+    // Move attack box with same velocity as player.
+    for (number, mut transform, ground_y) in &mut attack_box_query {
+        if let Some(velocity) = map.get(number) {
+            transform.translation.x += velocity.x;
+            transform.translation.y += velocity.y;
+            if transform.translation.y <= ground_y.0 {
+                // Player has hit the ground. Reset velocity and position.
+                transform.translation.y = ground_y.0;
             }
         }
     }
