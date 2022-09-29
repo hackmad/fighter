@@ -3,6 +3,8 @@
 use crate::common::*;
 use bevy::app::Plugin;
 use bevy::prelude::*;
+use bevy::sprite::MaterialMesh2dBundle;
+use std::collections::HashMap;
 use std::ops::Add;
 
 /// Handles the player mechanics.
@@ -17,16 +19,20 @@ impl Plugin for PlayerPlugin {
     }
 }
 
+/// Represents the player.
+#[derive(Component)]
+struct Player;
+
 /// Player number.
-#[derive(Copy, Clone, Debug, PartialEq)]
-enum PlayerNumber {
+#[derive(Component, Copy, Clone, Debug, Eq, Hash, PartialEq)]
+enum Number {
     One,
     Two,
 }
 
 /// Player states.
 #[derive(Copy, Clone, Debug, PartialEq)]
-enum PlayerState {
+enum State {
     Attacking,
     Dying,
     Falling,
@@ -35,28 +41,17 @@ enum PlayerState {
     Running,
     TakingHit,
 }
-impl Default for PlayerState {
+impl Default for State {
     fn default() -> Self {
         Self::Idling
     }
 }
 
-/// Represents the player.
-#[derive(Component)]
-struct Player {
-    number: PlayerNumber,
-}
-impl Player {
-    fn new(number: PlayerNumber) -> Self {
-        Self { number }
-    }
-}
-
 /// Represents player's current state.
 #[derive(Component, Default, Deref, DerefMut)]
-struct CurrentState(PlayerState);
+struct CurrentState(State);
 impl CurrentState {
-    fn set_state(&mut self, state: PlayerState) {
+    fn set_state(&mut self, state: State) {
         self.0 = state;
     }
     fn set_from_previous(&mut self, state: &PreviousState) {
@@ -66,9 +61,9 @@ impl CurrentState {
 
 /// Represents player's previous state.
 #[derive(Component, Default, Deref, DerefMut)]
-struct PreviousState(PlayerState);
+struct PreviousState(State);
 impl PreviousState {
-    fn set_state(&mut self, state: PlayerState) {
+    fn set_state(&mut self, state: State) {
         self.0 = state;
     }
     fn set_from_current(&mut self, state: &CurrentState) {
@@ -92,11 +87,23 @@ struct Keys {
     jump: KeyCode,
     attack: KeyCode,
 }
+
+/// Represents the bounding box for testing attack collisions.
+#[derive(Component)]
+struct Collider;
+
+/// Setup the players.
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
+    // NOTE: Need separate entity to display collider. If we add multiple SpriteBundle,
+    // SpriteSheetBundle, Mesh, etc that each have Transforms, it messes up the movement system
+    // as all transforms trample over each other.
+
     // Player 1.
     let player_atlas_handle = load_sprite(
         &asset_server,
@@ -109,11 +116,13 @@ fn setup(
 
     // Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
     let pos = Vec3::new(-300.0, GROUND_Y, 0.2);
-    let sprite_pos = pos.add(Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.0));
+    let sprite_pos = pos.add(Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.21));
+    let collider_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.22));
 
     commands
         .spawn()
-        .insert(Player::new(PlayerNumber::One))
+        .insert(Player)
+        .insert(Number::One)
         .insert(CurrentState::default())
         .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
@@ -139,6 +148,26 @@ fn setup(
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 
+    commands
+        .spawn()
+        .insert(Collider)
+        .insert(Number::One)
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Box::new(30.0, 55.0, 0.1).into()).into(),
+            material: materials.add(ColorMaterial::from(Color::rgba(
+                1.0,
+                0.0,
+                0.0,
+                COLLIDER_ALPHA,
+            ))),
+            transform: Transform::from_translation(collider_pos).with_scale(Vec3::new(
+                PLAYER_SCALE,
+                PLAYER_SCALE,
+                1.0,
+            )),
+            ..default()
+        });
+
     // Player 2.
     let player_atlas_handle = load_sprite(
         &asset_server,
@@ -151,11 +180,13 @@ fn setup(
 
     // Adjust player feet. (Height=200, y-feet=128 => y-center=100 => y-offset=28).
     let pos = Vec3::new(300.0, GROUND_Y, 0.2);
-    let sprite_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.0));
+    let sprite_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.21));
+    let collider_pos = pos.add(Vec3::new(-3.0 * PLAYER_SCALE, 29.0 * PLAYER_SCALE, 0.22));
 
     commands
         .spawn()
-        .insert(Player::new(PlayerNumber::Two))
+        .insert(Player)
+        .insert(Number::Two)
         .insert(CurrentState::default())
         .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
@@ -180,6 +211,26 @@ fn setup(
             attack: KeyCode::Down,
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
+
+    commands
+        .spawn()
+        .insert(Collider)
+        .insert(Number::Two)
+        .insert_bundle(MaterialMesh2dBundle {
+            mesh: meshes.add(shape::Box::new(25.0, 58.0, 0.1).into()).into(),
+            material: materials.add(ColorMaterial::from(Color::rgba(
+                0.0,
+                0.0,
+                1.0,
+                COLLIDER_ALPHA,
+            ))),
+            transform: Transform::from_translation(collider_pos).with_scale(Vec3::new(
+                PLAYER_SCALE,
+                PLAYER_SCALE,
+                1.0,
+            )),
+            ..default()
+        });
 }
 
 /// Load an animated sprite sheet for the player.
@@ -204,18 +255,20 @@ fn load_sprite(
 /// Handle play input.
 fn input_system(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(
-        &Player,
-        &mut CurrentState,
-        &mut PreviousState,
-        &Keys,
-        &Transform,
-        &GroundY,
-        &mut Velocity,
-    )>,
+    mut player_query: Query<
+        (
+            &mut CurrentState,
+            &mut PreviousState,
+            &Keys,
+            &Transform,
+            &GroundY,
+            &mut Velocity,
+        ),
+        With<Player>,
+    >,
 ) {
-    for (_player, mut current_state, mut previous_state, keys, transform, ground_y, mut velocity) in
-        query.iter_mut()
+    for (mut current_state, mut previous_state, keys, transform, ground_y, mut velocity) in
+        player_query.iter_mut()
     {
         // Move left as long as left key is pressed.
         if keyboard_input.pressed(keys.left) {
@@ -239,24 +292,30 @@ fn input_system(
         }
 
         // Attack.
-        if keyboard_input.pressed(keys.attack) && current_state.0 != PlayerState::Attacking {
+        if keyboard_input.pressed(keys.attack) && current_state.0 != State::Attacking {
             previous_state.set_from_current(&current_state);
-            current_state.set_state(PlayerState::Attacking);
+            current_state.set_state(State::Attacking);
         }
     }
 }
 
 /// Handle player movement based on velocity.
 fn movement_system(
-    mut query: Query<(
-        &Player,
-        &mut CurrentState,
-        &mut Transform,
-        &GroundY,
-        &mut Velocity,
-    )>,
+    mut player_query: Query<
+        (
+            &Number,
+            &mut CurrentState,
+            &mut Transform,
+            &GroundY,
+            &mut Velocity,
+        ),
+        (With<Player>, Without<Collider>),
+    >,
+    mut collider_query: Query<(&Number, &mut Transform), (With<Collider>, Without<Player>)>,
 ) {
-    for (_player, mut current_state, mut transform, ground_y, mut velocity) in &mut query {
+    let mut map: HashMap<Number, (Vec2, f32)> = HashMap::new();
+
+    for (number, mut current_state, mut transform, ground_y, mut velocity) in &mut player_query {
         // Handle movement.
         transform.translation.x += velocity.x;
         transform.translation.y += velocity.y;
@@ -270,23 +329,37 @@ fn movement_system(
             velocity.y = 0.0;
         }
 
-        // Take care of player state changes.
-        if current_state.0 == PlayerState::Attacking {
-            // Let player finish attacking.
-            return;
+        // If player is attacking then let them finish attacking.
+        if current_state.0 != State::Attacking {
+            if transform.translation.y > ground_y.0 {
+                if velocity.y > 0.0 {
+                    current_state.0 = State::Jumping;
+                } else {
+                    current_state.0 = State::Falling;
+                }
+            } else if velocity.x != 0.0 {
+                current_state.0 = State::Running;
+            } else {
+                current_state.0 = State::Idling;
+            }
         }
 
-        // Switch to jumping/falling/run/idling state.
-        if transform.translation.y > ground_y.0 {
-            if velocity.y > 0.0 {
-                current_state.0 = PlayerState::Jumping;
-            } else {
-                current_state.0 = PlayerState::Falling;
+        // Store positions for colliders.
+        map.insert(*number, (Vec2::new(velocity.x, velocity.y), ground_y.0));
+    }
+
+    // Move collider with same velocity as player.
+    //
+    // TODO: We might want to adjust collider based on state as the box tends to not be
+    // aligned with animations for different states.
+    for (number, mut transform) in &mut collider_query {
+        if let Some((velocity, ground_y)) = map.get(number) {
+            transform.translation.x += velocity.x;
+            transform.translation.y += velocity.y;
+            if transform.translation.y <= *ground_y {
+                // Player has hit the ground. Reset velocity and position.
+                transform.translation.y = *ground_y;
             }
-        } else if velocity.x != 0.0 {
-            current_state.0 = PlayerState::Running;
-        } else {
-            current_state.0 = PlayerState::Idling;
         }
     }
 }
@@ -294,23 +367,28 @@ fn movement_system(
 /// Animate the player sprite.
 fn animation_system(
     time: Res<Time>,
-    mut query: Query<(
-        &Player,
-        &mut CurrentState,
-        &PreviousState,
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-    )>,
+    mut player_query: Query<
+        (
+            &Number,
+            &mut CurrentState,
+            &PreviousState,
+            &mut AnimationTimer,
+            &mut TextureAtlasSprite,
+        ),
+        With<Player>,
+    >,
 ) {
-    for (player, mut current_state, previous_state, mut timer, mut sprite) in &mut query {
+    for (player_number, mut current_state, previous_state, mut timer, mut sprite) in
+        &mut player_query
+    {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let (frame, looped) = next_frame(player.number, current_state.0, sprite.index);
+            let (frame, looped) = next_frame(player_number, current_state.0, sprite.index);
 
-            if current_state.0 == PlayerState::Attacking && looped {
+            if current_state.0 == State::Attacking && looped {
                 // Atack finished. Start previous state animation again.
                 current_state.set_from_previous(previous_state);
-                let (frame, _) = next_frame(player.number, current_state.0, 0);
+                let (frame, _) = next_frame(player_number, current_state.0, 0);
                 sprite.index = frame;
             } else {
                 sprite.index = frame;
@@ -320,25 +398,25 @@ fn animation_system(
 }
 
 /// Gets next animation frame for player.
-fn next_frame(player_number: PlayerNumber, state: PlayerState, frame: usize) -> (usize, bool) {
+fn next_frame(player_number: &Number, state: State, frame: usize) -> (usize, bool) {
     match player_number {
-        PlayerNumber::One => match state {
-            PlayerState::Attacking => next_player_sprite_frame(frame, 0, 5),
-            PlayerState::Dying => next_player_sprite_frame(frame, 16, 21),
-            PlayerState::Falling => next_player_sprite_frame(frame, 24, 25),
-            PlayerState::Idling => next_player_sprite_frame(frame, 32, 39),
-            PlayerState::Jumping => next_player_sprite_frame(frame, 40, 41),
-            PlayerState::Running => next_player_sprite_frame(frame, 48, 55),
-            PlayerState::TakingHit => next_player_sprite_frame(frame, 64, 67),
+        Number::One => match state {
+            State::Attacking => next_player_sprite_frame(frame, 0, 5),
+            State::Dying => next_player_sprite_frame(frame, 16, 21),
+            State::Falling => next_player_sprite_frame(frame, 24, 25),
+            State::Idling => next_player_sprite_frame(frame, 32, 39),
+            State::Jumping => next_player_sprite_frame(frame, 40, 41),
+            State::Running => next_player_sprite_frame(frame, 48, 55),
+            State::TakingHit => next_player_sprite_frame(frame, 64, 67),
         },
-        PlayerNumber::Two => match state {
-            PlayerState::Attacking => next_player_sprite_frame(frame, 0, 3),
-            PlayerState::Dying => next_player_sprite_frame(frame, 16, 22),
-            PlayerState::Falling => next_player_sprite_frame(frame, 24, 25),
-            PlayerState::Idling => next_player_sprite_frame(frame, 32, 35),
-            PlayerState::Jumping => next_player_sprite_frame(frame, 40, 41),
-            PlayerState::Running => next_player_sprite_frame(frame, 48, 55),
-            PlayerState::TakingHit => next_player_sprite_frame(frame, 56, 58),
+        Number::Two => match state {
+            State::Attacking => next_player_sprite_frame(frame, 0, 3),
+            State::Dying => next_player_sprite_frame(frame, 16, 22),
+            State::Falling => next_player_sprite_frame(frame, 24, 25),
+            State::Idling => next_player_sprite_frame(frame, 32, 35),
+            State::Jumping => next_player_sprite_frame(frame, 40, 41),
+            State::Running => next_player_sprite_frame(frame, 48, 55),
+            State::TakingHit => next_player_sprite_frame(frame, 56, 58),
         },
     }
 }
