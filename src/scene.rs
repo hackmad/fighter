@@ -73,14 +73,16 @@ fn load_sprite(
 fn animation_system(
     time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlas>>,
-    mut query: Query<(
-        &Shop,
-        &mut AnimationTimer,
-        &mut TextureAtlasSprite,
-        &Handle<TextureAtlas>,
-    )>,
+    mut query: Query<
+        (
+            &mut AnimationTimer,
+            &mut TextureAtlasSprite,
+            &Handle<TextureAtlas>,
+        ),
+        With<Shop>,
+    >,
 ) {
-    for (_shop, mut timer, mut sprite, texture_atlas_handle) in &mut query {
+    for (mut timer, mut sprite, texture_atlas_handle) in &mut query {
         timer.tick(time.delta());
         if timer.just_finished() {
             let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
