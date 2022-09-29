@@ -10,3 +10,13 @@
 .DS_Store
 
 *.log
+
+# Node
+node_modules
+
+# Duplicate assets
+
+browser/www/assets
+
+# No need to add this generate by wasm-pack
+browser/.git

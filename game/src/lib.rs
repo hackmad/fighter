@@ -3,13 +3,15 @@
 mod common;
 mod player;
 mod scene;
+mod utils;
 
 use bevy::{prelude::*, render::texture::ImageSettings, window::PresentMode};
 use common::*;
 use player::*;
 use scene::*;
 
-fn main() {
+// Create the app.
+pub fn run() {
     App::new()
         .insert_resource(ImageSettings::default_nearest())
         .insert_resource(WindowDescriptor {

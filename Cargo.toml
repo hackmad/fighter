@@ -1,13 +1,16 @@
-[package]
-name = "fighter"
-version = "0.0.1"
-edition = "2021"
-
-[dependencies]
-bevy = { version = "0.8.1" }
+[workspace]
+resolver = "2" # Bevy + wgpu need this!
+members = ["game", "browser", "native"]
 
 [profile.dev]
 opt-level = 1 # Small amount of optimization in debug mode
 
 [profile.dev.package."*"]
 opt-level = 3 # High optimizations for dependencies (incl. Bevy), but not for our code
+
+[profile.release]
+lto = "thin"
+
+[profile.release-browser]
+inherits = "release"
+opt-level = "s" # Small code size
