@@ -4,6 +4,15 @@ use crate::common::*;
 use bevy::app::Plugin;
 use bevy::prelude::*;
 
+/// Scaling factor for background sprite.
+const BG_SCALE: f32 = 3.2;
+
+/// Scaling factor for shop sprite.
+const SHOP_SCALE: f32 = 2.85;
+
+/// Ground location along y-axis.
+pub const GROUND_Y: f32 = -66.0 * BG_SCALE;
+
 /// Handles the game scene assets.
 pub struct ScenePlugin;
 

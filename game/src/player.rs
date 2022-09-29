@@ -1,11 +1,30 @@
 //! Player
 
 use crate::common::*;
+use crate::GROUND_Y;
 use bevy::app::Plugin;
 use bevy::prelude::*;
-use bevy::sprite::MaterialMesh2dBundle;
+use bevy::sprite::{collide_aabb, MaterialMesh2dBundle};
 use std::collections::HashMap;
 use std::ops::Add;
+
+/// Scaling factor for player sprite.
+const PLAYER_SCALE: f32 = 2.75;
+
+/// Starting frame for idle animation.
+const IDLE_FRAME_START: usize = 32;
+
+/// Initial velocity for player jumps.
+const JUMP_VELOCITY: f32 = 20.0;
+
+/// Velocity for horizontal player movement.
+const HORIZ_VELOCITY: f32 = 5.0;
+
+/// Animation frame used to determine collisions for player 1's attack.
+const P1_ATTACK_FRAME: usize = 4;
+
+/// Animation frame used to determine collisions for player 2's attack.
+const P2_ATTACK_FRAME: usize = 2;
 
 /// Handles the player mechanics.
 pub struct PlayerPlugin;
@@ -13,9 +32,10 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
-            .add_system(animation_system)
             .add_system(input_system)
-            .add_system(movement_system);
+            .add_system(movement_system)
+            .add_system(collision_system)
+            .add_system(animation_system);
     }
 }
 
@@ -71,7 +91,7 @@ impl PreviousState {
     }
 }
 
-/// Represents a velocity.
+/// Represents player velocity.
 #[derive(Component, Deref, DerefMut)]
 struct Velocity(Vec3);
 
@@ -90,11 +110,21 @@ struct Keys {
 
 /// Represents the bounding box for testing attack collisions.
 #[derive(Component)]
-struct Collider;
+struct ColliderBox {
+    pos: Vec3,
+    size: Vec2,
+}
 
-/// Represents the attack box for testing with colliders.
+/// Represents the attack box for testing with collider_boxes.
 #[derive(Component)]
-struct AttackBox;
+struct AttackBox {
+    pos: Vec3,
+    size: Vec2,
+}
+
+/// Represents the current sprite index (used for determining collision).
+#[derive(Component, Deref, DerefMut)]
+struct CurrentFrame(usize);
 
 /// Setup the players.
 fn setup(
@@ -121,9 +151,10 @@ fn setup(
     // Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
     let pos = Vec3::new(-300.0, GROUND_Y, 0.2);
     let sprite_pos = pos.add(Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.21));
-    let collider_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.22));
+    let collider_box_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.22));
+    let collider_box_size = Vec2::new(30.0, 55.0) * PLAYER_SCALE;
     let attack_box_pos = pos.add(Vec3::new(37.0 * PLAYER_SCALE, 50.0 * PLAYER_SCALE, 0.23));
-    let (attack_box_w, attack_box_h) = (105.0, 25.0);
+    let attack_box_size = Vec2::new(105.0, 25.0) * PLAYER_SCALE;
 
     commands
         .spawn()
@@ -133,10 +164,11 @@ fn setup(
         .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
         .insert(GroundY(sprite_pos.y))
+        .insert(CurrentFrame(IDLE_FRAME_START))
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: player_atlas_handle,
             sprite: TextureAtlasSprite {
-                index: 32, // Idling frame start. Avoids starting at Attacking frame.
+                index: IDLE_FRAME_START, // Idling frame start. Avoids starting at Attacking frame.
                 ..default()
             },
             transform: Transform::from_translation(sprite_pos).with_scale(Vec3::new(
@@ -156,33 +188,37 @@ fn setup(
 
     commands
         .spawn()
-        .insert(Collider)
+        .insert(ColliderBox {
+            pos: collider_box_pos,
+            size: collider_box_size,
+        })
         .insert(Number::One)
-        .insert(GroundY(collider_pos.y))
+        .insert(GroundY(collider_box_pos.y))
         .insert_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Box::new(30.0, 55.0, 0.1).into()).into(),
+            mesh: meshes
+                .add(shape::Box::new(collider_box_size.x, collider_box_size.y, 0.1).into())
+                .into(),
             material: materials.add(ColorMaterial::from(Color::rgba(
                 1.0,
                 0.0,
                 0.0,
                 COLLIDER_ALPHA,
             ))),
-            transform: Transform::from_translation(collider_pos).with_scale(Vec3::new(
-                PLAYER_SCALE,
-                PLAYER_SCALE,
-                1.0,
-            )),
+            transform: Transform::from_translation(collider_box_pos),
             ..default()
         });
 
     commands
         .spawn()
-        .insert(AttackBox)
+        .insert(AttackBox {
+            pos: attack_box_pos,
+            size: attack_box_size,
+        })
         .insert(Number::One)
         .insert(GroundY(attack_box_pos.y))
         .insert_bundle(MaterialMesh2dBundle {
             mesh: meshes
-                .add(shape::Box::new(attack_box_w, attack_box_h, 0.1).into())
+                .add(shape::Box::new(attack_box_size.x, attack_box_size.y, 0.1).into())
                 .into(),
             material: materials.add(ColorMaterial::from(Color::rgba(
                 1.0,
@@ -190,11 +226,7 @@ fn setup(
                 0.0,
                 COLLIDER_ALPHA,
             ))),
-            transform: Transform::from_translation(attack_box_pos).with_scale(Vec3::new(
-                PLAYER_SCALE,
-                PLAYER_SCALE,
-                1.0,
-            )),
+            transform: Transform::from_translation(attack_box_pos),
             ..default()
         });
 
@@ -211,9 +243,10 @@ fn setup(
     // Adjust player feet. (Height=200, y-feet=128 => y-center=100 => y-offset=28).
     let pos = Vec3::new(300.0, GROUND_Y, 0.2);
     let sprite_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.21));
-    let collider_pos = pos.add(Vec3::new(-3.0 * PLAYER_SCALE, 29.0 * PLAYER_SCALE, 0.22));
+    let collider_box_pos = pos.add(Vec3::new(-3.0 * PLAYER_SCALE, 29.0 * PLAYER_SCALE, 0.22));
+    let collider_box_size = Vec2::new(25.0, 58.0) * PLAYER_SCALE;
     let attack_box_pos = pos.add(Vec3::new(-37.0 * PLAYER_SCALE, 40.0 * PLAYER_SCALE, 0.23));
-    let (attack_box_w, attack_box_h) = (95.0, 35.0);
+    let attack_box_size = Vec2::new(95.0, 35.0) * PLAYER_SCALE;
 
     commands
         .spawn()
@@ -223,10 +256,11 @@ fn setup(
         .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
         .insert(GroundY(sprite_pos.y))
+        .insert(CurrentFrame(IDLE_FRAME_START))
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: player_atlas_handle,
             sprite: TextureAtlasSprite {
-                index: 32, // Idling frame start. Avoids starting at Attacking frame.
+                index: IDLE_FRAME_START, // Idling frame start. Avoids starting at Attacking frame.
                 ..default()
             },
             transform: Transform::from_translation(sprite_pos).with_scale(Vec3::new(
@@ -246,33 +280,37 @@ fn setup(
 
     commands
         .spawn()
-        .insert(Collider)
+        .insert(ColliderBox {
+            pos: collider_box_pos,
+            size: collider_box_size,
+        })
         .insert(Number::Two)
-        .insert(GroundY(collider_pos.y))
+        .insert(GroundY(collider_box_pos.y))
         .insert_bundle(MaterialMesh2dBundle {
-            mesh: meshes.add(shape::Box::new(25.0, 58.0, 0.1).into()).into(),
+            mesh: meshes
+                .add(shape::Box::new(collider_box_size.x, collider_box_size.y, 0.1).into())
+                .into(),
             material: materials.add(ColorMaterial::from(Color::rgba(
                 0.0,
                 0.0,
                 1.0,
                 COLLIDER_ALPHA,
             ))),
-            transform: Transform::from_translation(collider_pos).with_scale(Vec3::new(
-                PLAYER_SCALE,
-                PLAYER_SCALE,
-                1.0,
-            )),
+            transform: Transform::from_translation(collider_box_pos),
             ..default()
         });
 
     commands
         .spawn()
-        .insert(AttackBox)
+        .insert(AttackBox {
+            pos: attack_box_pos,
+            size: attack_box_size,
+        })
         .insert(Number::Two)
         .insert(GroundY(attack_box_pos.y))
         .insert_bundle(MaterialMesh2dBundle {
             mesh: meshes
-                .add(shape::Box::new(attack_box_w, attack_box_h, 0.1).into())
+                .add(shape::Box::new(attack_box_size.x, attack_box_size.y, 0.1).into())
                 .into(),
             material: materials.add(ColorMaterial::from(Color::rgba(
                 0.0,
@@ -280,11 +318,7 @@ fn setup(
                 1.0,
                 COLLIDER_ALPHA,
             ))),
-            transform: Transform::from_translation(attack_box_pos).with_scale(Vec3::new(
-                PLAYER_SCALE,
-                PLAYER_SCALE,
-                1.0,
-            )),
+            transform: Transform::from_translation(attack_box_pos),
             ..default()
         });
 }
@@ -365,18 +399,18 @@ fn movement_system(
             &GroundY,
             &mut Velocity,
         ),
-        (With<Player>, Without<Collider>, Without<AttackBox>),
+        (With<Player>, Without<ColliderBox>, Without<AttackBox>),
     >,
-    mut collider_query: Query<
-        (&Number, &mut Transform, &GroundY),
-        (With<Collider>, Without<Player>, Without<AttackBox>),
+    mut collider_box_query: Query<
+        (&mut ColliderBox, &Number, &mut Transform, &GroundY),
+        (With<ColliderBox>, Without<Player>, Without<AttackBox>),
     >,
     mut attack_box_query: Query<
-        (&Number, &mut Transform, &GroundY),
-        (With<AttackBox>, Without<Player>, Without<Collider>),
+        (&mut AttackBox, &Number, &mut Transform, &GroundY),
+        (With<AttackBox>, Without<Player>, Without<ColliderBox>),
     >,
 ) {
-    let mut map: HashMap<Number, Vec2> = HashMap::new();
+    let mut new_velocities = HashMap::new();
 
     for (number, mut current_state, mut transform, ground_y, mut velocity) in &mut player_query {
         // Handle movement.
@@ -407,33 +441,117 @@ fn movement_system(
             }
         }
 
-        // Store positions for colliders.
-        map.insert(*number, Vec2::new(velocity.x, velocity.y));
+        // Store positions for collider_boxes.
+        new_velocities.insert(*number, Vec2::new(velocity.x, velocity.y));
     }
 
     // Move collider with same velocity as player.
     //
     // TODO: We might want to adjust collider based on state as the box tends to not be
     // aligned with animations for different states.
-    for (number, mut transform, ground_y) in &mut collider_query {
-        if let Some(velocity) = map.get(number) {
+    for (mut collider_box, number, mut transform, ground_y) in &mut collider_box_query {
+        if let Some(velocity) = new_velocities.get(number) {
             transform.translation.x += velocity.x;
             transform.translation.y += velocity.y;
             if transform.translation.y <= ground_y.0 {
                 // Player has hit the ground. Reset velocity and position.
                 transform.translation.y = ground_y.0;
             }
+            collider_box.pos = transform.translation;
         }
     }
 
     // Move attack box with same velocity as player.
-    for (number, mut transform, ground_y) in &mut attack_box_query {
-        if let Some(velocity) = map.get(number) {
+    for (mut attack_box, number, mut transform, ground_y) in &mut attack_box_query {
+        if let Some(velocity) = new_velocities.get(number) {
             transform.translation.x += velocity.x;
             transform.translation.y += velocity.y;
             if transform.translation.y <= ground_y.0 {
                 // Player has hit the ground. Reset velocity and position.
                 transform.translation.y = ground_y.0;
+            }
+            attack_box.pos = transform.translation;
+        }
+    }
+}
+
+/// Handle collision detection.
+fn collision_system(
+    mut player_query: Query<
+        (
+            &Number,
+            &mut CurrentState,
+            &mut PreviousState,
+            &CurrentFrame,
+        ),
+        With<Player>,
+    >,
+    collider_box_query: Query<
+        (&ColliderBox, &Number),
+        (With<ColliderBox>, Without<Player>, Without<AttackBox>),
+    >,
+    attack_box_query: Query<
+        (&AttackBox, &Number),
+        (With<AttackBox>, Without<Player>, Without<ColliderBox>),
+    >,
+) {
+    // Since we need to check one player's collider with the opponent's attack_box we need to
+    // load this information before running the collision detection.
+    let mut players = HashMap::new();
+    for (number, current_state, previous_state, current_frame) in &player_query {
+        players.insert(
+            *number,
+            (current_state.0, previous_state.0, current_frame.0),
+        );
+    }
+
+    let mut collider_boxes = HashMap::new();
+    for (collider_box, number) in &collider_box_query {
+        collider_boxes.insert(*number, (collider_box.pos, collider_box.size));
+    }
+
+    let mut attack_boxes = HashMap::new();
+    for (attack_box, number) in &attack_box_query {
+        attack_boxes.insert(*number, (attack_box.pos, attack_box.size));
+    }
+
+    // Check collision detection.
+    for (number, mut current_state, mut previous_state, _current_frame) in &mut player_query {
+        let (
+            opp_attack_frame,
+            (opp_current_state, _opp_previous_state, opp_current_frame),
+            (opp_attack_box_pos, opp_attack_box_size),
+            (collider_box_pos, collider_box_size),
+        ) = match number {
+            Number::One => (
+                P2_ATTACK_FRAME,
+                players.get(&Number::Two).unwrap(),
+                attack_boxes.get(&Number::Two).unwrap(),
+                collider_boxes.get(number).unwrap(),
+            ),
+            Number::Two => (
+                P1_ATTACK_FRAME,
+                players.get(&Number::One).unwrap(),
+                attack_boxes.get(&Number::One).unwrap(),
+                collider_boxes.get(number).unwrap(),
+            ),
+        };
+
+        if *opp_current_state == State::Attacking && *opp_current_frame == opp_attack_frame {
+            match collide_aabb::collide(
+                *opp_attack_box_pos,
+                *opp_attack_box_size,
+                *collider_box_pos,
+                *collider_box_size,
+            ) {
+                Some(_) => {
+                    println!("Player {:?} hit", number);
+                    previous_state.0 = current_state.0;
+                    current_state.0 = State::TakingHit;
+                }
+                None => {
+                    println!("Player {:?} no hit", number);
+                }
             }
         }
     }
@@ -449,24 +567,35 @@ fn animation_system(
             &PreviousState,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
+            &mut CurrentFrame,
         ),
         With<Player>,
     >,
 ) {
-    for (player_number, mut current_state, previous_state, mut timer, mut sprite) in
-        &mut player_query
+    for (
+        player_number,
+        mut current_state,
+        previous_state,
+        mut timer,
+        mut sprite,
+        mut current_frame,
+    ) in &mut player_query
     {
         timer.tick(time.delta());
         if timer.just_finished() {
             let (frame, looped) = next_frame(player_number, current_state.0, sprite.index);
 
-            if current_state.0 == State::Attacking && looped {
-                // Atack finished. Start previous state animation again.
+            if looped
+                && (current_state.0 == State::Attacking || current_state.0 == State::TakingHit)
+            {
+                // Atack/Taking Hit finished. Start previous state animation again.
                 current_state.set_from_previous(previous_state);
                 let (frame, _) = next_frame(player_number, current_state.0, 0);
                 sprite.index = frame;
+                current_frame.0 = frame;
             } else {
                 sprite.index = frame;
+                current_frame.0 = frame;
             }
         }
     }
