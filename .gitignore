@@ -17,6 +17,7 @@ node_modules
 # Duplicate assets
 
 browser/www/assets
+native/assets
 
 # No need to add this generate by wasm-pack
 browser/.git

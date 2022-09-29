@@ -16,8 +16,8 @@ __Notes:__
   `bevy` engine.
 - The assets folder in the root of the project is symlinked into the
   `native` project.
-- The assets folder needs to be copied to `browser/www` folder. It is 
-  ignored in `.gitignore` for this reason.
+- The assets folder needs to be copied to `native` and `browser/www` folders.
+  It is ignored in `.gitignore` for this reason.
 
 ## game 
 
@@ -101,6 +101,7 @@ npm install
 ## native
 
 ```bash
+cp -r assets native/assets
 cargo run -p native
 ```
 
