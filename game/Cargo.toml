@@ -6,4 +6,5 @@ edition = "2021"
 
 [dependencies]
 bevy = { version = "0.8.1" }
+lazy_static = "1.4.0"
 wasm-bindgen = "0.2.63"
