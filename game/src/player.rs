@@ -5,7 +5,6 @@ use crate::GROUND_Y;
 use bevy::app::Plugin;
 use bevy::prelude::*;
 use bevy::sprite::{collide_aabb, MaterialMesh2dBundle};
-use bevy::time::FixedTimestep;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::ops::Add;
@@ -58,9 +57,6 @@ lazy_static! {
     };
 }
 
-/// Time steps for 60 FPS.
-const TIME_STEP: f32 = 1.0 / 60.0;
-
 /// Handles the player mechanics.
 pub struct PlayerPlugin;
 
@@ -68,7 +64,6 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup).add_system_set(
             SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
                 .with_system(collision_system)
                 .with_system(input_system.before(collision_system))
                 .with_system(movement_system.before(collision_system))
@@ -424,7 +419,7 @@ fn input_system(
             match current_state.0 {
                 State::Attacking | State::TakingHit => (),
                 _ => {
-                    previous_state.set_state(current_state.0);
+                    previous_state.set_from_current(&current_state);
                     current_state.set_state(State::Attacking);
                 }
             }
@@ -502,15 +497,31 @@ fn movement_system(
                     .unwrap()
                     .1;
                 if current_frame.0 == max_frame {
-                    // Don't resume attacking state after taking a hit.
                     match previous_state.0 {
-                        State::Attacking => current_state.set_state(State::Idling),
-                        _ => current_state.set_from_previous(previous_state),
+                        State::Attacking => {
+                            // Don't resume attacking state after taking a hit.
+                            // Determine state based on position/velocity.
+                            if transform.translation.y > ground_y.0 {
+                                if velocity.y > 0.0 {
+                                    current_state.0 = State::Jumping;
+                                } else {
+                                    current_state.0 = State::Falling;
+                                }
+                            } else if velocity.x != 0.0 {
+                                current_state.0 = State::Running;
+                            } else {
+                                current_state.0 = State::Idling;
+                            }
+                        }
+                        _ => {
+                            // Resume previous state.
+                            current_state.set_from_previous(previous_state);
+                        }
                     }
                 }
             }
             _ => {
-                // Change state
+                // Determine state based on position/velocity.
                 if transform.translation.y > ground_y.0 {
                     if velocity.y > 0.0 {
                         current_state.0 = State::Jumping;
@@ -637,7 +648,7 @@ fn collision_system(
                     )
                     .is_some()
                     {
-                        //println!("{:?} taking hit", number);
+                        println!("{:?} taking hit", number);
                         previous_state.set_state(current_state.0);
                         current_state.set_state(State::TakingHit);
                     }
