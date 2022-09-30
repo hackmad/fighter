@@ -39,8 +39,7 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     // Background sprite.
-    let bg_image: Handle<Image> =
-        asset_server.load("oak_woods_v1.0/background/background_composite.png");
+    let bg_image: Handle<Image> = asset_server.load("background_composite.png");
 
     commands.spawn_bundle(SpriteBundle {
         texture: bg_image,
@@ -53,7 +52,7 @@ fn setup(
     let shop_atlas_handle = load_sprite(
         &asset_server,
         &mut texture_atlases,
-        "oak_woods_v1.0/decorations/shop_anim.png",
+        "shop_anim.png",
         Vec2::new(708.0, 128.0),
         6,
     );

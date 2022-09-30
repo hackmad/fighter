@@ -194,7 +194,7 @@ fn setup(
     let player_atlas_handle = load_sprite(
         &asset_server,
         &mut texture_atlases,
-        "Martial Hero/Sprites/SpriteSheet.png",
+        "player_one.png",
         Vec2::new(1600.0, 1800.0),
         8,
         9,
@@ -287,7 +287,7 @@ fn setup(
     let player_atlas_handle = load_sprite(
         &asset_server,
         &mut texture_atlases,
-        "Martial Hero 2/Sprites/SpriteSheet.png",
+        "player_two.png",
         Vec2::new(1600.0, 1600.0),
         8,
         8,
