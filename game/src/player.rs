@@ -24,6 +24,9 @@ const HORIZ_VELOCITY: f32 = 5.0;
 /// Collider alpha (used for displaying collider for debugging).
 const COLLIDER_ALPHA: f32 = 0.4;
 
+/// Starting health stat.
+const MAX_HEALTH: u16 = 100;
+
 lazy_static! {
     /// Frame ranges for player states (min, max).
     static ref FRAMES: HashMap<Number, HashMap<State, (usize, usize)>> = {
@@ -56,6 +59,15 @@ lazy_static! {
         let mut m = HashMap::new();
         m.insert(Number::One, 4);
         m.insert(Number::Two, 2);
+        m
+    };
+
+    /// Attack damage of player. Player one has slow powerful attack while player two
+    /// has quick weaker attack (based on number of frames of animation).
+    static ref ATTACK_DAMAGES: HashMap<Number , u16> = {
+        let mut m = HashMap::new();
+        m.insert(Number::One, 10_u16);
+        m.insert(Number::Two, 8_u16);
         m
     };
 }
@@ -162,6 +174,10 @@ struct AttackBox {
 #[derive(Component, Deref, DerefMut)]
 struct CurrentFrame(usize);
 
+/// Represents the health.
+#[derive(Component, Deref, DerefMut)]
+struct Health(u16);
+
 /// Setup the players.
 fn setup(
     mut commands: Commands,
@@ -196,6 +212,7 @@ fn setup(
         .spawn()
         .insert(Player)
         .insert(Number::One)
+        .insert(Health(MAX_HEALTH))
         .insert(CurrentState::default())
         .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
@@ -288,6 +305,7 @@ fn setup(
         .spawn()
         .insert(Player)
         .insert(Number::Two)
+        .insert(Health(MAX_HEALTH))
         .insert(CurrentState::default())
         .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
@@ -396,6 +414,12 @@ fn input_system(
     for (mut current_state, mut previous_state, keys, transform, ground_y, mut velocity) in
         player_query.iter_mut()
     {
+        // Don't do anything if player is dead.
+        match current_state.0 {
+            State::Dying => continue,
+            _ => (),
+        }
+
         // Move left as long as left key is pressed.
         if keyboard_input.pressed(keys.left) {
             velocity.x = -HORIZ_VELOCITY;
@@ -441,6 +465,7 @@ fn movement_system(
             &GroundY,
             &mut Velocity,
             &CurrentFrame,
+            &Health,
         ),
         (With<Player>, Without<ColliderBox>, Without<AttackBox>),
     >,
@@ -464,6 +489,7 @@ fn movement_system(
         ground_y,
         mut velocity,
         current_frame,
+        health,
     ) in &mut player_query
     {
         // Handle horizontal movement.
@@ -486,7 +512,15 @@ fn movement_system(
             velocity.y = 0.0;
         }
 
+        // Check if player is dying.
+        if health.0 == 0 {
+            current_state.set_state(State::Dying);
+        }
+
         match current_state.0 {
+            State::Dying => {
+                // Don't do anything. Game over.
+            }
             State::Attacking => {
                 // Let player finish attacking.
                 let max_frame = FRAMES
@@ -597,6 +631,7 @@ fn collision_system(
             &mut CurrentState,
             &mut PreviousState,
             &CurrentFrame,
+            &mut Health,
         ),
         (With<Player>, Without<ColliderBox>, Without<AttackBox>),
     >,
@@ -612,7 +647,7 @@ fn collision_system(
     // Since we need to check one player's collider with the opponent's attack_box we need to
     // load this information before running the collision detection.
     let mut players = HashMap::new();
-    for (number, current_state, previous_state, current_frame) in &player_query {
+    for (number, current_state, previous_state, current_frame, _health) in &player_query {
         players.insert(
             *number,
             (current_state.0, previous_state.0, current_frame.0),
@@ -630,7 +665,9 @@ fn collision_system(
     }
 
     // Check collision detection.
-    for (number, mut current_state, mut previous_state, _current_frame) in &mut player_query {
+    for (number, mut current_state, mut previous_state, _current_frame, mut health) in
+        &mut player_query
+    {
         match current_state.0 {
             State::TakingHit | State::Dying => continue,
             _ => (),
@@ -641,18 +678,21 @@ fn collision_system(
             opponent_attack_frame,
             (opponent_current_state, _opponent_previous_state, opponent_current_frame),
             (opponent_attack_box_pos, opponent_attack_box_size),
+            opponent_attack_damage,
         ) = match number {
             Number::One => (
                 collider_boxes.get(number).unwrap(),
                 ATTACK_FRAMES.get(&Number::Two).unwrap(),
                 players.get(&Number::Two).unwrap(),
                 attack_boxes.get(&Number::Two).unwrap(),
+                ATTACK_DAMAGES.get(&Number::Two).unwrap(),
             ),
             Number::Two => (
                 collider_boxes.get(number).unwrap(),
                 ATTACK_FRAMES.get(&Number::One).unwrap(),
                 players.get(&Number::One).unwrap(),
                 attack_boxes.get(&Number::One).unwrap(),
+                ATTACK_DAMAGES.get(&Number::One).unwrap(),
             ),
         };
 
@@ -667,9 +707,17 @@ fn collision_system(
                     )
                     .is_some()
                     {
-                        println!("{:?} taking hit", number);
                         previous_state.set_state(current_state.0);
                         current_state.set_state(State::TakingHit);
+
+                        // Just in case damage is not a nice divisior of MAX_HEALTH.
+                        let mut new_health: i16 = health.0 as i16 - *opponent_attack_damage as i16;
+                        if new_health < 0 {
+                            new_health = 0;
+                        }
+                        health.0 = new_health as u16;
+
+                        println!("Player {:?} hit. Health = {}.", number, health.0);
                     }
                 }
             }
@@ -705,7 +753,19 @@ fn animation_system(
 /// Gets next animation frame for player.
 fn next_frame(number: &Number, state: State, current: usize) -> (usize, bool) {
     let (start, end) = FRAMES.get(number).unwrap().get(&state).unwrap();
-    next_player_sprite_frame(current, *start, *end)
+    let (frame, looped) = next_player_sprite_frame(current, *start, *end);
+
+    match state {
+        State::Dying => {
+            // Don't loop dying animation.
+            if looped {
+                (*end, false)
+            } else {
+                (frame, looped)
+            }
+        }
+        _ => (frame, looped),
+    }
 }
 
 /// Returns the next frame for player sprite.
