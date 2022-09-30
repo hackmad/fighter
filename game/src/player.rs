@@ -5,6 +5,7 @@ use crate::GROUND_Y;
 use bevy::app::Plugin;
 use bevy::prelude::*;
 use bevy::sprite::{collide_aabb, MaterialMesh2dBundle};
+use bevy::time::FixedTimestep;
 use std::collections::HashMap;
 use std::ops::Add;
 
@@ -26,16 +27,39 @@ const P1_ATTACK_FRAME: usize = 4;
 /// Animation frame used to determine collisions for player 2's attack.
 const P2_ATTACK_FRAME: usize = 2;
 
+/// Frame ranges for player states (min, max).
+const P1_ATTACKING_FRAMES: (usize, usize) = (0, 5);
+const P1_DYING_FRAMES: (usize, usize) = (16, 21);
+const P1_FALLING_FRAMES: (usize, usize) = (24, 25);
+const P1_IDLING_FRAMES: (usize, usize) = (32, 39);
+const P1_JUMPING_FRAMES: (usize, usize) = (40, 41);
+const P1_RUNNING_FRAMES: (usize, usize) = (48, 55);
+const P1_TAKING_HIT_FRAMES: (usize, usize) = (64, 67);
+
+const P2_ATTACKING_FRAMES: (usize, usize) = (0, 3);
+const P2_DYING_FRAMES: (usize, usize) = (16, 22);
+const P2_FALLING_FRAMES: (usize, usize) = (24, 25);
+const P2_IDLING_FRAMES: (usize, usize) = (32, 35);
+const P2_JUMPING_FRAMES: (usize, usize) = (40, 41);
+const P2_RUNNING_FRAMES: (usize, usize) = (48, 55);
+const P2_TAKING_HIT_FRAMES: (usize, usize) = (56, 58);
+
+/// Time steps for 60 FPS.
+const TIME_STEP: f32 = 1.0 / 60.0;
+
 /// Handles the player mechanics.
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup)
-            .add_system(input_system)
-            .add_system(movement_system)
-            .add_system(collision_system)
-            .add_system(animation_system);
+        app.add_startup_system(setup).add_system_set(
+            SystemSet::new()
+                .with_run_criteria(FixedTimestep::step(TIME_STEP as f64))
+                .with_system(collision_system)
+                .with_system(input_system.before(collision_system))
+                .with_system(movement_system.before(collision_system))
+                .with_system(animation_system),
+        );
     }
 }
 
@@ -381,10 +405,15 @@ fn input_system(
             }
         }
 
-        // Attack.
-        if keyboard_input.pressed(keys.attack) && current_state.0 != State::Attacking {
-            previous_state.set_from_current(&current_state);
-            current_state.set_state(State::Attacking);
+        if keyboard_input.pressed(keys.attack) {
+            // If player is either attacking already or taking a hit don't allow an attack.
+            match current_state.0 {
+                State::Attacking | State::TakingHit => (),
+                _ => {
+                    previous_state.set_state(current_state.0);
+                    current_state.set_state(State::Attacking);
+                }
+            }
         }
     }
 }
@@ -395,9 +424,11 @@ fn movement_system(
         (
             &Number,
             &mut CurrentState,
+            &PreviousState,
             &mut Transform,
             &GroundY,
             &mut Velocity,
+            &CurrentFrame,
         ),
         (With<Player>, Without<ColliderBox>, Without<AttackBox>),
     >,
@@ -412,7 +443,16 @@ fn movement_system(
 ) {
     let mut new_velocities = HashMap::new();
 
-    for (number, mut current_state, mut transform, ground_y, mut velocity) in &mut player_query {
+    for (
+        number,
+        mut current_state,
+        previous_state,
+        mut transform,
+        ground_y,
+        mut velocity,
+        current_frame,
+    ) in &mut player_query
+    {
         // Handle movement.
         transform.translation.x += velocity.x;
         transform.translation.y += velocity.y;
@@ -426,18 +466,44 @@ fn movement_system(
             velocity.y = 0.0;
         }
 
-        // If player is attacking then let them finish attacking.
-        if current_state.0 != State::Attacking {
-            if transform.translation.y > ground_y.0 {
-                if velocity.y > 0.0 {
-                    current_state.0 = State::Jumping;
-                } else {
-                    current_state.0 = State::Falling;
+        match current_state.0 {
+            State::Attacking => {
+                // Let player finish attacking.
+                let max_frame = match number {
+                    Number::One => P1_ATTACKING_FRAMES.1,
+                    Number::Two => P2_ATTACKING_FRAMES.1,
+                };
+                if current_frame.0 == max_frame {
+                    current_state.set_from_previous(previous_state);
                 }
-            } else if velocity.x != 0.0 {
-                current_state.0 = State::Running;
-            } else {
-                current_state.0 = State::Idling;
+            }
+            State::TakingHit => {
+                // Let player finish taking hit.
+                let max_frame = match number {
+                    Number::One => P1_TAKING_HIT_FRAMES.1,
+                    Number::Two => P2_TAKING_HIT_FRAMES.1,
+                };
+                if current_frame.0 == max_frame {
+                    // Don't resume attacking state after taking a hit.
+                    match previous_state.0 {
+                        State::Attacking => current_state.set_state(State::Idling),
+                        _ => current_state.set_from_previous(previous_state),
+                    }
+                }
+            }
+            _ => {
+                // Change state
+                if transform.translation.y > ground_y.0 {
+                    if velocity.y > 0.0 {
+                        current_state.0 = State::Jumping;
+                    } else {
+                        current_state.0 = State::Falling;
+                    }
+                } else if velocity.x != 0.0 {
+                    current_state.0 = State::Running;
+                } else {
+                    current_state.0 = State::Idling;
+                }
             }
         }
 
@@ -484,7 +550,7 @@ fn collision_system(
             &mut PreviousState,
             &CurrentFrame,
         ),
-        With<Player>,
+        (With<Player>, Without<ColliderBox>, Without<AttackBox>),
     >,
     collider_box_query: Query<
         (&ColliderBox, &Number),
@@ -517,42 +583,48 @@ fn collision_system(
 
     // Check collision detection.
     for (number, mut current_state, mut previous_state, _current_frame) in &mut player_query {
+        match current_state.0 {
+            State::TakingHit | State::Dying => continue,
+            _ => (),
+        }
+
         let (
+            (collider_box_pos, collider_box_size),
             opp_attack_frame,
             (opp_current_state, _opp_previous_state, opp_current_frame),
             (opp_attack_box_pos, opp_attack_box_size),
-            (collider_box_pos, collider_box_size),
         ) = match number {
             Number::One => (
+                collider_boxes.get(number).unwrap(),
                 P2_ATTACK_FRAME,
                 players.get(&Number::Two).unwrap(),
                 attack_boxes.get(&Number::Two).unwrap(),
-                collider_boxes.get(number).unwrap(),
             ),
             Number::Two => (
+                collider_boxes.get(number).unwrap(),
                 P1_ATTACK_FRAME,
                 players.get(&Number::One).unwrap(),
                 attack_boxes.get(&Number::One).unwrap(),
-                collider_boxes.get(number).unwrap(),
             ),
         };
 
-        if *opp_current_state == State::Attacking && *opp_current_frame == opp_attack_frame {
-            match collide_aabb::collide(
-                *opp_attack_box_pos,
-                *opp_attack_box_size,
-                *collider_box_pos,
-                *collider_box_size,
-            ) {
-                Some(_) => {
-                    println!("Player {:?} hit", number);
-                    previous_state.0 = current_state.0;
-                    current_state.0 = State::TakingHit;
-                }
-                None => {
-                    println!("Player {:?} no hit", number);
+        match opp_current_state {
+            State::Attacking => {
+                if *opp_current_frame == opp_attack_frame {
+                    if collide_aabb::collide(
+                        *opp_attack_box_pos,
+                        *opp_attack_box_size,
+                        *collider_box_pos,
+                        *collider_box_size,
+                    )
+                    .is_some()
+                    {
+                        previous_state.set_state(current_state.0);
+                        current_state.set_state(State::TakingHit);
+                    }
                 }
             }
+            _ => (),
         }
     }
 }
@@ -563,8 +635,7 @@ fn animation_system(
     mut player_query: Query<
         (
             &Number,
-            &mut CurrentState,
-            &PreviousState,
+            &CurrentState,
             &mut AnimationTimer,
             &mut TextureAtlasSprite,
             &mut CurrentFrame,
@@ -572,31 +643,12 @@ fn animation_system(
         With<Player>,
     >,
 ) {
-    for (
-        player_number,
-        mut current_state,
-        previous_state,
-        mut timer,
-        mut sprite,
-        mut current_frame,
-    ) in &mut player_query
-    {
+    for (number, current_state, mut timer, mut sprite, mut current_frame) in &mut player_query {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let (frame, looped) = next_frame(player_number, current_state.0, sprite.index);
-
-            if looped
-                && (current_state.0 == State::Attacking || current_state.0 == State::TakingHit)
-            {
-                // Atack/Taking Hit finished. Start previous state animation again.
-                current_state.set_from_previous(previous_state);
-                let (frame, _) = next_frame(player_number, current_state.0, 0);
-                sprite.index = frame;
-                current_frame.0 = frame;
-            } else {
-                sprite.index = frame;
-                current_frame.0 = frame;
-            }
+            let (frame, _looped) = next_frame(number, current_state.0, sprite.index);
+            sprite.index = frame;
+            current_frame.0 = frame;
         }
     }
 }
@@ -605,28 +657,29 @@ fn animation_system(
 fn next_frame(player_number: &Number, state: State, frame: usize) -> (usize, bool) {
     match player_number {
         Number::One => match state {
-            State::Attacking => next_player_sprite_frame(frame, 0, 5),
-            State::Dying => next_player_sprite_frame(frame, 16, 21),
-            State::Falling => next_player_sprite_frame(frame, 24, 25),
-            State::Idling => next_player_sprite_frame(frame, 32, 39),
-            State::Jumping => next_player_sprite_frame(frame, 40, 41),
-            State::Running => next_player_sprite_frame(frame, 48, 55),
-            State::TakingHit => next_player_sprite_frame(frame, 64, 67),
+            State::Attacking => next_player_sprite_frame(frame, P1_ATTACKING_FRAMES),
+            State::Dying => next_player_sprite_frame(frame, P1_DYING_FRAMES),
+            State::Falling => next_player_sprite_frame(frame, P1_FALLING_FRAMES),
+            State::Idling => next_player_sprite_frame(frame, P1_IDLING_FRAMES),
+            State::Jumping => next_player_sprite_frame(frame, P1_JUMPING_FRAMES),
+            State::Running => next_player_sprite_frame(frame, P1_RUNNING_FRAMES),
+            State::TakingHit => next_player_sprite_frame(frame, P1_TAKING_HIT_FRAMES),
         },
         Number::Two => match state {
-            State::Attacking => next_player_sprite_frame(frame, 0, 3),
-            State::Dying => next_player_sprite_frame(frame, 16, 22),
-            State::Falling => next_player_sprite_frame(frame, 24, 25),
-            State::Idling => next_player_sprite_frame(frame, 32, 35),
-            State::Jumping => next_player_sprite_frame(frame, 40, 41),
-            State::Running => next_player_sprite_frame(frame, 48, 55),
-            State::TakingHit => next_player_sprite_frame(frame, 56, 58),
+            State::Attacking => next_player_sprite_frame(frame, P2_ATTACKING_FRAMES),
+            State::Dying => next_player_sprite_frame(frame, P2_DYING_FRAMES),
+            State::Falling => next_player_sprite_frame(frame, P2_FALLING_FRAMES),
+            State::Idling => next_player_sprite_frame(frame, P2_IDLING_FRAMES),
+            State::Jumping => next_player_sprite_frame(frame, P2_JUMPING_FRAMES),
+            State::Running => next_player_sprite_frame(frame, P2_RUNNING_FRAMES),
+            State::TakingHit => next_player_sprite_frame(frame, P2_TAKING_HIT_FRAMES),
         },
     }
 }
 
 /// Returns the next frame for player sprite.
-fn next_player_sprite_frame(mut current: usize, min: usize, max: usize) -> (usize, bool) {
+fn next_player_sprite_frame(mut current: usize, frames: (usize, usize)) -> (usize, bool) {
+    let (min, max) = frames;
     if current < min || current > max {
         // Out of bounds for current player state. Reset to min.
         (min, false)
