@@ -21,6 +21,9 @@ const JUMP_VELOCITY: f32 = 20.0;
 /// Velocity for horizontal player movement.
 const HORIZ_VELOCITY: f32 = 5.0;
 
+/// Collider alpha (used for displaying collider for debugging).
+const COLLIDER_ALPHA: f32 = 0.4;
+
 lazy_static! {
     /// Frame ranges for player states (min, max).
     static ref FRAMES: HashMap<Number, HashMap<State, (usize, usize)>> = {
@@ -451,6 +454,7 @@ fn movement_system(
     >,
 ) {
     let mut new_velocities = HashMap::new();
+    let mut move_x = HashMap::new();
 
     for (
         number,
@@ -462,10 +466,17 @@ fn movement_system(
         current_frame,
     ) in &mut player_query
     {
-        // Handle movement.
-        transform.translation.x += velocity.x;
-        transform.translation.y += velocity.y;
+        // Handle horizontal movement.
+        let new_x = transform.translation.x + velocity.x;
+        if new_x > crate::scene::SCENE_MIN_X && new_x < crate::scene::SCENE_MAX_X {
+            transform.translation.x = new_x;
+            move_x.insert(number, true);
+        } else {
+            move_x.insert(number, false);
+        }
 
+        // Handle vertical movement.
+        transform.translation.y += velocity.y;
         if transform.translation.y > ground_y.0 {
             // Player is in the air keep decreasing velocity.
             velocity.y -= GRAVITY;
@@ -546,12 +557,16 @@ fn movement_system(
     // aligned with animations for different states.
     for (mut collider_box, number, mut transform, ground_y) in &mut collider_box_query {
         if let Some(velocity) = new_velocities.get(number) {
-            transform.translation.x += velocity.x;
+            if *move_x.get(number).unwrap() {
+                transform.translation.x += velocity.x;
+            }
+
             transform.translation.y += velocity.y;
             if transform.translation.y <= ground_y.0 {
                 // Player has hit the ground. Reset velocity and position.
                 transform.translation.y = ground_y.0;
             }
+
             collider_box.pos = transform.translation;
         }
     }
@@ -559,12 +574,16 @@ fn movement_system(
     // Move attack box with same velocity as player.
     for (mut attack_box, number, mut transform, ground_y) in &mut attack_box_query {
         if let Some(velocity) = new_velocities.get(number) {
-            transform.translation.x += velocity.x;
+            if *move_x.get(number).unwrap() {
+                transform.translation.x += velocity.x;
+            }
+
             transform.translation.y += velocity.y;
             if transform.translation.y <= ground_y.0 {
                 // Player has hit the ground. Reset velocity and position.
                 transform.translation.y = ground_y.0;
             }
+
             attack_box.pos = transform.translation;
         }
     }

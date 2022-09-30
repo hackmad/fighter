@@ -13,6 +13,12 @@ const SHOP_SCALE: f32 = 2.85;
 /// Ground location along y-axis.
 pub const GROUND_Y: f32 = -66.0 * BG_SCALE;
 
+/// Scene minimum x bounds
+pub const SCENE_MIN_X: f32 = -WINDOW_WIDTH as f32 / 2.0 + 30.0;
+
+/// Scene maximum x bounds
+pub const SCENE_MAX_X: f32 = WINDOW_WIDTH as f32 / 2.0 - 25.0;
+
 /// Handles the game scene assets.
 pub struct ScenePlugin;
 
