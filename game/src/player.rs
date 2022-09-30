@@ -608,9 +608,9 @@ fn collision_system(
 
         let (
             (collider_box_pos, collider_box_size),
-            opp_attack_frame,
-            (opp_current_state, _opp_previous_state, opp_current_frame),
-            (opp_attack_box_pos, opp_attack_box_size),
+            opponent_attack_frame,
+            (opponent_current_state, _opponent_previous_state, opponent_current_frame),
+            (opponent_attack_box_pos, opponent_attack_box_size),
         ) = match number {
             Number::One => (
                 collider_boxes.get(number).unwrap(),
@@ -626,17 +626,18 @@ fn collision_system(
             ),
         };
 
-        match opp_current_state {
+        match opponent_current_state {
             State::Attacking => {
-                if *opp_current_frame == *opp_attack_frame {
+                if *opponent_current_frame == *opponent_attack_frame {
                     if collide_aabb::collide(
-                        *opp_attack_box_pos,
-                        *opp_attack_box_size,
+                        *opponent_attack_box_pos,
+                        *opponent_attack_box_size,
                         *collider_box_pos,
                         *collider_box_size,
                     )
                     .is_some()
                     {
+                        //println!("{:?} taking hit", number);
                         previous_state.set_state(current_state.0);
                         current_state.set_state(State::TakingHit);
                     }
