@@ -23,7 +23,7 @@ pub fn run() {
         .add_plugin(PlayerPlugin)
         .add_plugin(ScenePlugin)
         .add_startup_system(setup)
-        .add_system(bevy::window::close_on_esc)
+        //.add_system(bevy::window::close_on_esc)
         .run();
 }
 
