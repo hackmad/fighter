@@ -63,18 +63,20 @@ pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup).add_system_set(
-            SystemSet::new()
-                .with_system(collision_system)
-                .with_system(input_system.before(collision_system))
-                .with_system(movement_system.before(collision_system))
-                .with_system(animation_system),
-        );
+        app.add_startup_system(setup)
+            .add_event::<HealthUpdateEvent>()
+            .add_system_set(
+                SystemSet::new()
+                    .with_system(collision_system)
+                    .with_system(input_system.before(collision_system))
+                    .with_system(movement_system.before(collision_system))
+                    .with_system(animation_system),
+            );
     }
 }
 
 /// Represents the player.
-#[derive(Component, Debug, Eq, Hash, PartialEq)]
+#[derive(Component, Copy, Clone, Debug, Eq, Hash, PartialEq)]
 pub enum Player {
     One,
     Two,
@@ -167,6 +169,17 @@ struct CurrentFrame(usize);
 /// Represents the health.
 #[derive(Component, Deref, DerefMut)]
 struct Health(u16);
+
+/// Used to communicate changes to the player's health with other systems.
+pub struct HealthUpdateEvent {
+    pub player: Player,
+    pub health: u16,
+}
+impl HealthUpdateEvent {
+    fn new(player: Player, health: u16) -> Self {
+        HealthUpdateEvent { player, health }
+    }
+}
 
 /// Setup the players.
 fn setup(
@@ -530,6 +543,7 @@ fn collision_system(
     )>,
     collider_box_query: Query<(&Parent, &GlobalTransform, &Transform), With<ColliderBox>>,
     attack_box_query: Query<(&Parent, &GlobalTransform, &Transform), With<AttackBox>>,
+    mut health_update_events: EventWriter<HealthUpdateEvent>,
 ) {
     // Since we need to check one player's collider with the opponent's attack_box we need to
     // load this information before running the collision detection.
@@ -589,7 +603,7 @@ fn collision_system(
                         }
                         health.0 = new_health as u16;
 
-                        println!("Player {:?} hit. Health = {}.", player, health.0);
+                        health_update_events.send(HealthUpdateEvent::new(*player, health.0));
                     }
                 }
             }
