@@ -1,4 +1,4 @@
-# Fighting Game
+# Fighter
 
 Based on [JavaScript Fighting Game Tutorial with HTML Canvas](https://www.youtube.com/watch?v=vyqbNFMDRGQ)
 
@@ -38,12 +38,14 @@ This is for the WebAssembly game and uses [wasm-pack](https://github.com/rustwas
 It can't be build form the workspace root so you have to change to the
 project folder first.
 
+__NOTE:__ This relies on `Node 16.13.0 LTS`.
+
 ```bash
 cd browser
 wasm-pack build
 ```
 
-### First time setup only
+The following steps are for the first time setup only, 
 
 Initialize the Node application:
 
@@ -84,11 +86,6 @@ import * as wasm from "browser";
 wasm.run()
 ```
 
-Update `browser/www/package.json`:
-
-```json
-```
-
 Install dependencies again:
 
 ```bash
@@ -107,8 +104,13 @@ cargo run -p native
 
 ## browser
 
-Run the server (`NODE_OPTIONS` is necessary due to an issue with Node
-18.8.0 and OpenSSL).
+```bash
+cd browser/www
+npm run start
+```
+
+If you are using a newer verison of Node, then you might need to add
+`NODE_OPTIONS` like this:
 
 ```bash
 cd browser/www
@@ -116,4 +118,3 @@ NODE_OPTIONS=--openssl-legacy-provider npm run start
 ```
 
 Open the browser to the [http://localhost:8080](http://localhost:8080/)
-
