@@ -7,7 +7,6 @@ use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
-use std::ops::Add;
 
 /// Scaling factor for player sprite.
 const PLAYER_SCALE: f32 = 2.75;
@@ -22,7 +21,7 @@ const JUMP_VELOCITY: f32 = 20.0;
 const HORIZ_VELOCITY: f32 = 5.0;
 
 /// Collider alpha (used for displaying collider for debugging).
-const COLLIDER_ALPHA: f32 = 0.4;
+const COLLIDER_ALPHA: f32 = 0.0;
 
 /// Starting health stat.
 const MAX_HEALTH: u16 = 100;
@@ -175,118 +174,97 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    // Player 1.
-    let player_atlas_handle = load_sprite(
+    // Player 1: Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
+    let mut pos = Vec3::new(-300.0, GROUND_Y, 0.2);
+    pos += Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.21);
+    spawn_player(
+        &mut commands,
         &asset_server,
         &mut texture_atlases,
-        "player_one.png",
-        Vec2::new(1600.0, 1800.0),
-        8,
-        9,
-    );
-
-    // Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
-    let pos = Vec3::new(-300.0, GROUND_Y, 0.2);
-    let player_pos = pos.add(Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.21));
-    let collider_box_pos = Vec3::new(0.0, 15.0, 0.22);
-    let collider_box_size = Vec3::new(30.0, 55.0, 1.0) * PLAYER_SCALE;
-    let attack_box_pos = Vec3::new(145.0, 56.0, 0.23);
-    let attack_box_size = Vec3::new(75.0, 25.0, 1.0) * PLAYER_SCALE;
-
-    commands
-        .spawn()
-        .insert(Player::One)
-        .insert(Health(MAX_HEALTH))
-        .insert(CurrentState::default())
-        .insert(PreviousState::default())
-        .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
-        .insert(GroundY(player_pos.y))
-        .insert(CurrentFrame(IDLE_FRAME_START))
-        .insert_bundle(SpatialBundle {
-            visibility: Visibility { is_visible: true },
-            transform: Transform {
-                translation: player_pos,
-                ..default()
-            },
-            ..default()
-        })
-        .insert(Keys {
+        Player::One,
+        pos,
+        Keys {
             left: KeyCode::A,
             right: KeyCode::D,
             jump: KeyCode::W,
             attack: KeyCode::S,
-        })
-        .insert(AnimationTimer(Timer::from_seconds(0.1, true)))
-        .with_children(|player| {
-            player.spawn().insert_bundle(SpriteSheetBundle {
-                texture_atlas: player_atlas_handle,
-                sprite: TextureAtlasSprite {
-                    index: IDLE_FRAME_START, // Idling frame start. Avoids starting at Attacking frame.
-                    ..default()
-                },
-                transform: Transform {
-                    scale: Vec3::new(PLAYER_SCALE, PLAYER_SCALE, 1.0),
-                    ..default()
-                },
-                ..default()
-            });
+        },
+        "player_one.png",
+        Vec2::new(1600.0, 1800.0),
+        8,
+        9,
+        Vec3::new(0.0, 15.0, 0.22),
+        Vec3::new(30.0, 55.0, 1.0) * PLAYER_SCALE,
+        Color::rgba(1.0, 0.0, 0.0, COLLIDER_ALPHA),
+        Vec3::new(145.0, 56.0, 0.23),
+        Vec3::new(75.0, 25.0, 1.0) * PLAYER_SCALE,
+        Color::rgba(1.0, 1.0, 0.0, COLLIDER_ALPHA),
+    );
 
-            player
-                .spawn()
-                .insert(ColliderBox)
-                .insert(GroundY(collider_box_pos.y))
-                .insert_bundle(SpriteBundle {
-                    sprite: Sprite {
-                        color: Color::rgba(1.0, 0.0, 0.0, COLLIDER_ALPHA),
-                        ..default()
-                    },
-                    transform: Transform {
-                        translation: collider_box_pos,
-                        scale: collider_box_size,
-                        ..default()
-                    },
-                    ..default()
-                });
-
-            player
-                .spawn()
-                .insert(AttackBox)
-                .insert(GroundY(attack_box_pos.y))
-                .insert_bundle(SpriteBundle {
-                    sprite: Sprite {
-                        color: Color::rgba(1.0, 1.0, 0.0, COLLIDER_ALPHA),
-                        ..default()
-                    },
-                    transform: Transform {
-                        translation: attack_box_pos,
-                        scale: attack_box_size,
-                        ..default()
-                    },
-                    ..default()
-                });
-        });
-
-    // Player 2.
-    let player_atlas_handle = load_sprite(
+    // Player 2: Adjust player feet. (Height=200, y-feet=128 => y-center=100 => y-offset=28).
+    pos = Vec3::new(300.0, GROUND_Y, 0.2);
+    pos += Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.21);
+    spawn_player(
+        &mut commands,
         &asset_server,
         &mut texture_atlases,
+        Player::Two,
+        pos,
+        Keys {
+            left: KeyCode::Left,
+            right: KeyCode::Right,
+            jump: KeyCode::Up,
+            attack: KeyCode::Down,
+        },
         "player_two.png",
         Vec2::new(1600.0, 1600.0),
         8,
         8,
+        Vec3::new(0.0, 0.0, 0.22),
+        Vec3::new(25.0, 58.0, 1.0) * PLAYER_SCALE,
+        Color::rgba(0.0, 1.0, 0.0, COLLIDER_ALPHA),
+        Vec3::new(-130.0, 32.0, 0.23),
+        Vec3::new(70.0, 35.0, 1.0) * PLAYER_SCALE,
+        Color::rgba(1.0, 0.0, 1.0, COLLIDER_ALPHA),
+    );
+}
+
+/// Spawn players.
+fn spawn_player(
+    commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+    player: Player,
+    player_pos: Vec3,
+    keys: Keys,
+    spritesheet_path: &str,
+    sprite_size: Vec2,
+    sprite_x_frames: usize,
+    sprite_y_frames: usize,
+    collider_box_pos: Vec3,
+    collider_box_size: Vec3,
+    collider_box_color: Color,
+    attack_box_pos: Vec3,
+    attack_box_size: Vec3,
+    attack_box_color: Color,
+) {
+    let player_atlas_handle = load_sprite(
+        &asset_server,
+        texture_atlases,
+        spritesheet_path,
+        sprite_size,
+        sprite_x_frames,
+        sprite_y_frames,
     );
 
-    // Adjust player feet. (Height=200, y-feet=128 => y-center=100 => y-offset=28).
-    let pos = Vec3::new(300.0, GROUND_Y, 0.2);
-    let player_pos = pos.add(Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.21));
-    let collider_box_pos = Vec3::new(0.0, 0.0, 0.22);
-    let collider_box_size = Vec3::new(25.0, 58.0, 1.0) * PLAYER_SCALE;
-    let attack_box_pos = Vec3::new(-130.0, 32.0, 0.23);
-    let attack_box_size = Vec3::new(70.0, 35.0, 1.0) * PLAYER_SCALE;
+    let player_tex_scale = match player {
+        Player::One => Vec3::new(PLAYER_SCALE, PLAYER_SCALE, 1.0), // Right facing
+        Player::Two => Vec3::new(-PLAYER_SCALE, PLAYER_SCALE, 1.0), // Flip X-axis for left facing
+    };
 
     commands
         .spawn()
-        .insert(Player::Two)
+        .insert(player)
         .insert(Health(MAX_HEALTH))
         .insert(CurrentState::default())
         .insert(PreviousState::default())
@@ -301,12 +279,7 @@ fn setup(
             },
             ..default()
         })
-        .insert(Keys {
-            left: KeyCode::Left,
-            right: KeyCode::Right,
-            jump: KeyCode::Up,
-            attack: KeyCode::Down,
-        })
+        .insert(keys)
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)))
         .with_children(|player| {
             player.spawn().insert_bundle(SpriteSheetBundle {
@@ -316,7 +289,7 @@ fn setup(
                     ..default()
                 },
                 transform: Transform {
-                    scale: Vec3::new(-PLAYER_SCALE, PLAYER_SCALE, 1.0),
+                    scale: player_tex_scale,
                     ..default()
                 },
                 ..default()
@@ -328,7 +301,7 @@ fn setup(
                 .insert(GroundY(collider_box_pos.y))
                 .insert_bundle(SpriteBundle {
                     sprite: Sprite {
-                        color: Color::rgba(0.0, 1.0, 0.0, COLLIDER_ALPHA),
+                        color: collider_box_color,
                         ..default()
                     },
                     transform: Transform {
@@ -345,7 +318,7 @@ fn setup(
                 .insert(GroundY(attack_box_pos.y))
                 .insert_bundle(SpriteBundle {
                     sprite: Sprite {
-                        color: Color::rgba(1.0, 0.0, 1.0, COLLIDER_ALPHA),
+                        color: attack_box_color,
                         ..default()
                     },
                     transform: Transform {
@@ -605,14 +578,7 @@ fn collision_system(
                     )
                     .is_some()
                     {
-                        println!(
-                            "Collision at {:?} {:?} - cb {:?} {:?}",
-                            opponent_attack_box_pos,
-                            opponent_attack_box_size,
-                            collider_box_pos,
-                            collider_box_size,
-                        );
-
+                        // Switch state to TakingHit.
                         previous_state.set_state(current_state.0);
                         current_state.set_state(State::TakingHit);
 
