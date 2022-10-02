@@ -1,7 +1,6 @@
 //! Player
 
 use crate::common::*;
-use crate::HealthUpdateEvent;
 use crate::GROUND_Y;
 use bevy::app::Plugin;
 use bevy::prelude::*;
@@ -60,7 +59,7 @@ lazy_static! {
 }
 
 /// Handles the player mechanics.
-pub struct PlayerPlugin;
+pub(crate) struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
@@ -78,18 +77,18 @@ impl Plugin for PlayerPlugin {
 
 /// Represents the player.
 #[derive(Component, Copy, Clone, Debug, Eq, Hash, PartialEq)]
-pub enum Player {
+pub(crate) enum Player {
     One,
     Two,
 }
 impl Player {
-    pub fn index(&self) -> usize {
+    pub(crate) fn index(&self) -> usize {
         match self {
             Self::One => 0,
             Self::Two => 1,
         }
     }
-    pub fn opponent(&self) -> Self {
+    pub(crate) fn opponent(&self) -> Self {
         match self {
             Self::One => Self::Two,
             Self::Two => Self::One,
@@ -169,7 +168,18 @@ struct CurrentFrame(usize);
 
 /// Represents the health.
 #[derive(Component, Deref, DerefMut)]
-pub struct Health(pub u8);
+pub(crate) struct Health(pub(crate) u8);
+
+/// Used to communicate changes to the player's health with other systems.
+pub(crate) struct HealthUpdateEvent {
+    pub(crate) player: Player,
+    pub(crate) health: u8,
+}
+impl HealthUpdateEvent {
+    pub(crate) fn new(player: Player, health: u8) -> Self {
+        HealthUpdateEvent { player, health }
+    }
+}
 
 /// Setup the players.
 fn setup(

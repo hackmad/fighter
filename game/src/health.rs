@@ -1,6 +1,7 @@
 //! Health
 
 use crate::common::*;
+use crate::HealthUpdateEvent;
 use crate::Player;
 use bevy::prelude::*;
 use std::collections::HashMap;
@@ -9,23 +10,12 @@ use std::collections::HashMap;
 const HEALTH_BAR_MAX_WIDTH: f32 = 400.0;
 
 /// Handles the health.
-pub struct HealthPlugin;
+pub(crate) struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup)
             .add_system(health_update_system);
-    }
-}
-
-/// Used to communicate changes to the player's health with other systems.
-pub struct HealthUpdateEvent {
-    pub player: Player,
-    pub health: u8,
-}
-impl HealthUpdateEvent {
-    pub fn new(player: Player, health: u8) -> Self {
-        HealthUpdateEvent { player, health }
     }
 }
 

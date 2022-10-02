@@ -11,23 +11,22 @@ const BG_SCALE: f32 = 3.2;
 const SHOP_SCALE: f32 = 2.85;
 
 /// Ground location along y-axis.
-pub const GROUND_Y: f32 = -66.0 * BG_SCALE;
+pub(crate) const GROUND_Y: f32 = -66.0 * BG_SCALE;
 
 /// Scene minimum x bounds
-pub const SCENE_MIN_X: f32 = -WINDOW_WIDTH as f32 / 2.0 + 30.0;
+pub(crate) const SCENE_MIN_X: f32 = -WINDOW_WIDTH as f32 / 2.0 + 30.0;
 
 /// Scene maximum x bounds
-pub const SCENE_MAX_X: f32 = WINDOW_WIDTH as f32 / 2.0 - 25.0;
+pub(crate) const SCENE_MAX_X: f32 = WINDOW_WIDTH as f32 / 2.0 - 25.0;
 
 /// Handles the game scene assets.
-pub struct ScenePlugin;
+pub(crate) struct ScenePlugin;
 
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.add_startup_system(setup).add_system(animation_system);
     }
 }
-
 /// Represents the shop sprite.
 #[derive(Component)]
 struct Shop;
