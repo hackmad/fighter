@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let font: Handle<Font> = asset_server.load("m6x11.ttf");
 
-    // Background of health bar.
+    // Background of countdown timer.
     commands.spawn().insert_bundle(SpriteBundle {
         sprite: Sprite {
             color: Color::WHITE,
@@ -75,7 +75,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn()
-        .insert(CountdownTimer::default())
         .insert_bundle(NodeBundle {
             style: Style {
                 size: Size::new(Val::Percent(100.0), Val::Percent(10.0)),
@@ -85,39 +84,41 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 justify_content: JustifyContent::Center,
-                align_items: AlignItems::FlexEnd,
+                align_items: AlignItems::Center,
                 ..Default::default()
             },
             color: UiColor(Color::NONE),
             ..default()
         })
         .with_children(|timer| {
-            timer.spawn_bundle(TextBundle {
-                text: Text::from_section(
-                    format!("{}", COUNTDOWN_TIMER_START),
-                    TextStyle {
-                        font,
-                        font_size: 24.0,
-                        color: Color::WHITE,
+            timer
+                .spawn_bundle(TextBundle {
+                    text: Text::from_section(
+                        format!("{}", COUNTDOWN_TIMER_START),
+                        TextStyle {
+                            font,
+                            font_size: 24.0,
+                            color: Color::WHITE,
+                        },
+                    )
+                    .with_alignment(TextAlignment::CENTER),
+                    style: Style {
+                        align_self: AlignSelf::Center,
+                        ..default()
                     },
-                )
-                .with_alignment(TextAlignment::TOP_CENTER),
-                style: Style {
-                    align_self: AlignSelf::Center,
                     ..default()
-                },
-                ..default()
-            });
+                })
+                .insert(CountdownTimer::default());
         });
 }
 
 /// Update the timer.
 fn countdown_system(
     mut timer_query: Query<&mut CountdownTimer>,
-    mut text_query: Query<(&Parent, &mut Text), With<Node>>,
+    mut text_query: Query<&mut Text, With<CountdownTimer>>,
     mut countdown_complete_events: EventWriter<CountdownCompleteEvent>,
 ) {
-    let (_parent, mut text) = text_query.single_mut();
+    let mut text = text_query.single_mut();
     let mut timer = timer_query.single_mut();
 
     if !timer.done {

@@ -169,7 +169,7 @@ struct CurrentFrame(usize);
 
 /// Represents the health.
 #[derive(Component, Deref, DerefMut)]
-struct Health(u8);
+pub struct Health(pub u8);
 
 /// Setup the players.
 fn setup(
