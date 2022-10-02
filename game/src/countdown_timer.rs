@@ -2,7 +2,6 @@
 
 use crate::{common::*, GameAssets, GameStates};
 use bevy::prelude::*;
-use bevy::time::FixedTimestep;
 
 /// Starting value for countdown timer.
 const COUNTDOWN_TIMER_START: u16 = 30;
@@ -14,11 +13,7 @@ impl Plugin for CountdownTimerPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CountdownCompleteEvent>()
             .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
-            .add_system_set(
-                SystemSet::on_update(GameStates::Next)
-                    .with_run_criteria(FixedTimestep::step(1.0))
-                    .with_system(countdown_system),
-            );
+            .add_system_set(SystemSet::on_update(GameStates::Next).with_system(countdown_system));
     }
 }
 
@@ -106,26 +101,31 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
                     },
                     ..default()
                 })
+                .insert(AnimationTimer(Timer::from_seconds(1.0, true)))
                 .insert(CountdownTimer::default());
         });
 }
 
 /// Update the timer.
 fn countdown_system(
-    mut timer_query: Query<&mut CountdownTimer>,
-    mut text_query: Query<&mut Text, With<CountdownTimer>>,
+    time: Res<Time>,
+    mut countdown_timer_query: Query<&mut CountdownTimer>,
+    mut text_query: Query<(&mut Text, &mut AnimationTimer), With<CountdownTimer>>,
     mut countdown_complete_events: EventWriter<CountdownCompleteEvent>,
 ) {
-    let mut text = text_query.single_mut();
-    let mut timer = timer_query.single_mut();
+    let (mut text, mut animation_timer) = text_query.single_mut();
+    let mut countdown_timer = countdown_timer_query.single_mut();
 
-    if !timer.done {
-        if timer.remaining > 0 {
-            timer.remaining -= 1;
-            text.sections[0].value = format!("{}", timer.remaining);
-        } else {
-            countdown_complete_events.send(CountdownCompleteEvent);
-            timer.done = true;
+    animation_timer.tick(time.delta());
+    if animation_timer.just_finished() {
+        if !countdown_timer.done {
+            if countdown_timer.remaining > 0 {
+                countdown_timer.remaining -= 1;
+                text.sections[0].value = format!("{}", countdown_timer.remaining);
+            } else {
+                countdown_complete_events.send(CountdownCompleteEvent);
+                countdown_timer.done = true;
+            }
         }
     }
 }

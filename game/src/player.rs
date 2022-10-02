@@ -73,6 +73,12 @@ impl Plugin for PlayerPlugin {
                     .with_system(input_system.before(collision_system))
                     .with_system(movement_system.before(collision_system))
                     .with_system(animation_system),
+            )
+            .add_system_set(
+                // This will ensure movement/animations can complete on Game Over.
+                SystemSet::on_update(GameStates::GameOver)
+                    .with_system(animation_system)
+                    .with_system(movement_system),
             );
     }
 }
@@ -586,10 +592,11 @@ fn animation_system(
     mut sprite_query: Query<(&Parent, &mut TextureAtlasSprite)>,
 ) {
     for (parent, mut sprite) in &mut sprite_query {
-        let (player, current_state, mut timer, mut current_frame) =
+        let (player, current_state, mut animation_timer, mut current_frame) =
             player_query.get_mut(parent.get()).unwrap();
-        timer.tick(time.delta());
-        if timer.just_finished() {
+
+        animation_timer.tick(time.delta());
+        if animation_timer.just_finished() {
             let (frame, _looped) = next_frame(player, current_state.0, sprite.index);
             sprite.index = frame;
             current_frame.0 = frame;

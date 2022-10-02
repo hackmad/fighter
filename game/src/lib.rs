@@ -39,7 +39,6 @@ pub fn run() {
         .add_plugin(CountdownTimerPlugin)
         .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
         .add_system_set(SystemSet::on_update(GameStates::Next).with_system(game_over_system))
-        //.add_system(bevy::window::close_on_esc)
         .run();
 }
 
@@ -70,6 +69,7 @@ pub(crate) struct GameAssets {
 enum GameStates {
     AssetLoading,
     Next,
+    GameOver,
 }
 
 /// Game over message.
@@ -116,6 +116,7 @@ fn game_over_system(
     mut text_query: Query<(&mut Text, &mut Visibility), With<GameOver>>,
     health_query: Query<(&Player, &Health)>,
     mut health_update_events: EventReader<HealthUpdateEvent>,
+    mut app_state: ResMut<State<GameStates>>,
 ) {
     let mut game_over = false;
 
@@ -157,5 +158,8 @@ fn game_over_system(
         }
 
         visibility.is_visible = true;
+
+        // Transition game state.
+        app_state.set(GameStates::GameOver).unwrap();
     }
 }
