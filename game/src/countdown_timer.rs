@@ -1,6 +1,6 @@
 //! Countdown Timer
 
-use crate::common::*;
+use crate::{common::*, GameAssets, GameStates};
 use bevy::prelude::*;
 use bevy::time::FixedTimestep;
 
@@ -12,10 +12,10 @@ pub struct CountdownTimerPlugin;
 
 impl Plugin for CountdownTimerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup)
-            .add_event::<CountdownCompleteEvent>()
+        app.add_event::<CountdownCompleteEvent>()
+            .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
             .add_system_set(
-                SystemSet::new()
+                SystemSet::on_update(GameStates::Next)
                     .with_run_criteria(FixedTimestep::step(1.0))
                     .with_system(countdown_system),
             );
@@ -41,11 +41,9 @@ impl Default for CountdownTimer {
 pub struct CountdownCompleteEvent;
 
 /// Setup the countdown timer.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     let timer_pos = Vec3::new(0.0, 225.0, COUNTDOWN_TIMER_Z);
     let timer_size = Vec3::new(95.0, 40.0, 1.0);
-
-    let font: Handle<Font> = asset_server.load("m6x11.ttf");
 
     // Background of countdown timer.
     commands.spawn().insert_bundle(SpriteBundle {
@@ -96,7 +94,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     text: Text::from_section(
                         format!("{}", COUNTDOWN_TIMER_START),
                         TextStyle {
-                            font,
+                            font: assets.font.clone(),
                             font_size: 24.0,
                             color: Color::WHITE,
                         },

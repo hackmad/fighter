@@ -1,6 +1,7 @@
 //! Health
 
 use crate::common::*;
+use crate::GameStates;
 use crate::HealthUpdateEvent;
 use crate::Player;
 use bevy::prelude::*;
@@ -14,8 +15,10 @@ pub(crate) struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup)
-            .add_system(health_update_system);
+        app.add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
+            .add_system_set(
+                SystemSet::on_update(GameStates::Next).with_system(health_update_system),
+            );
     }
 }
 

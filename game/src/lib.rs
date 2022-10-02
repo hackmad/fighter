@@ -8,6 +8,7 @@ mod scene;
 mod utils;
 
 use bevy::{prelude::*, render::texture::ImageSettings, window::PresentMode};
+use bevy_asset_loader::prelude::*;
 use common::*;
 use countdown_timer::*;
 use health::*;
@@ -25,35 +26,70 @@ pub fn run() {
             present_mode: PresentMode::AutoVsync,
             ..default()
         })
+        .add_loading_state(
+            LoadingState::new(GameStates::AssetLoading)
+                .continue_to_state(GameStates::Next)
+                .with_collection::<GameAssets>(),
+        )
+        .add_state(GameStates::AssetLoading)
         .add_plugins(DefaultPlugins)
         .add_plugin(ScenePlugin)
         .add_plugin(PlayerPlugin)
         .add_plugin(HealthPlugin)
         .add_plugin(CountdownTimerPlugin)
-        .add_startup_system(setup)
-        .add_system(game_over_system)
+        .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
+        .add_system_set(SystemSet::on_update(GameStates::Next).with_system(game_over_system))
         //.add_system(bevy::window::close_on_esc)
         .run();
 }
 
+/// Game assets
+#[derive(AssetCollection)]
+pub(crate) struct GameAssets {
+    #[asset(path = "fonts/m6x11.ttf")]
+    pub(crate) font: Handle<Font>,
+
+    #[asset(path = "images/background_composite.png")]
+    pub(crate) background_image: Handle<Image>,
+
+    #[asset(texture_atlas(tile_size_x = 118.0, tile_size_y = 128.0, columns = 6, rows = 1))]
+    #[asset(path = "images/shop_anim.png")]
+    pub(crate) shop_texture_atlas: Handle<TextureAtlas>,
+
+    #[asset(texture_atlas(tile_size_x = 200.0, tile_size_y = 200.0, columns = 8, rows = 9))]
+    #[asset(path = "images/player_one.png")]
+    pub(crate) player_one_texture_atlas: Handle<TextureAtlas>,
+
+    #[asset(texture_atlas(tile_size_x = 200.0, tile_size_y = 200.0, columns = 8, rows = 8))]
+    #[asset(path = "images/player_two.png")]
+    pub(crate) player_two_texture_atlas: Handle<TextureAtlas>,
+}
+
+/// Game states.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+enum GameStates {
+    AssetLoading,
+    Next,
+}
+
+/// Game over message.
 #[derive(Component)]
 struct GameOver;
 
 /// Setup the game.
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     commands.spawn_bundle(Camera2dBundle::default());
 
     // NOTE: The NodeBundle/TextBundle for the timer makes it super hard to use a similar
     // setup here. So we resort to positioning text manually and using a fixed length string
     // with padded spaces around it to get it close enough.
-    let font: Handle<Font> = asset_server.load("m6x11.ttf");
     commands
         .spawn()
         .insert_bundle(TextBundle {
             text: Text::from_section(
                 "".to_string(),
                 TextStyle {
-                    font,
+                    font: assets.font.clone(),
                     font_size: 24.0,
                     color: Color::BLACK,
                 },

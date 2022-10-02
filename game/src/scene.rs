@@ -1,6 +1,6 @@
 //! Scene
 
-use crate::common::*;
+use crate::{common::*, GameAssets, GameStates};
 use bevy::app::Plugin;
 use bevy::prelude::*;
 
@@ -24,7 +24,8 @@ pub(crate) struct ScenePlugin;
 
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup).add_system(animation_system);
+        app.add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
+            .add_system_set(SystemSet::on_update(GameStates::Next).with_system(animation_system));
     }
 }
 /// Represents the shop sprite.
@@ -32,35 +33,20 @@ impl Plugin for ScenePlugin {
 struct Shop;
 
 /// Setup the scene.
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
+fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     // Background sprite.
-    let bg_image: Handle<Image> = asset_server.load("background_composite.png");
-
     commands.spawn_bundle(SpriteBundle {
-        texture: bg_image,
+        texture: assets.background_image.clone(),
         transform: Transform::from_xyz(0.0, 0.0, 0.0)
             .with_scale(Vec3::new(BG_SCALE, BG_SCALE, BG_Z)),
         ..default()
     });
 
-    // Shop sprite sheet.
-    let shop_atlas_handle = load_sprite(
-        &asset_server,
-        &mut texture_atlases,
-        "shop_anim.png",
-        Vec2::new(708.0, 128.0),
-        6,
-    );
-
     commands
         .spawn()
         .insert(Shop)
         .insert_bundle(SpriteSheetBundle {
-            texture_atlas: shop_atlas_handle,
+            texture_atlas: assets.shop_texture_atlas.clone(),
             transform: Transform {
                 translation: Vec3::new(280.0, -28.5, BG_Z + 0.01),
                 scale: Vec3::new(SHOP_SCALE, SHOP_SCALE, 1.0),
@@ -69,20 +55,6 @@ fn setup(
             ..default()
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
-}
-
-/// Load an animated sprite sheet for the shop.
-fn load_sprite(
-    asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-    path: &str,
-    size: Vec2,
-    frames: usize,
-) -> Handle<TextureAtlas> {
-    let image: Handle<Image> = asset_server.load(path);
-    let texture_atlas =
-        TextureAtlas::from_grid(image, Vec2::new(size.x / frames as f32, size.y), frames, 1);
-    texture_atlases.add(texture_atlas)
 }
 
 /// Animate the shop sprite.

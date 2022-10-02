@@ -1,6 +1,8 @@
 //! Player
 
 use crate::common::*;
+use crate::GameAssets;
+use crate::GameStates;
 use crate::GROUND_Y;
 use bevy::app::Plugin;
 use bevy::prelude::*;
@@ -63,10 +65,10 @@ pub(crate) struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_startup_system(setup)
-            .add_event::<HealthUpdateEvent>()
+        app.add_event::<HealthUpdateEvent>()
+            .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
             .add_system_set(
-                SystemSet::new()
+                SystemSet::on_update(GameStates::Next)
                     .with_system(collision_system)
                     .with_system(input_system.before(collision_system))
                     .with_system(movement_system.before(collision_system))
@@ -182,18 +184,13 @@ impl HealthUpdateEvent {
 }
 
 /// Setup the players.
-fn setup(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
-) {
+fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     // Player 1: Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
     let mut pos = Vec3::new(-300.0, GROUND_Y, PLAYER_Z);
     pos += Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.01);
     spawn_player(
         &mut commands,
-        &asset_server,
-        &mut texture_atlases,
+        &assets,
         Player::One,
         pos,
         Keys {
@@ -202,10 +199,6 @@ fn setup(
             jump: KeyCode::W,
             attack: KeyCode::S,
         },
-        "player_one.png",
-        Vec2::new(1600.0, 1800.0),
-        8,
-        9,
         Vec3::new(0.0, 15.0, PLAYER_Z + 0.02),
         Vec3::new(30.0, 55.0, 1.0) * PLAYER_SCALE,
         Color::rgba(1.0, 0.0, 0.0, COLLIDER_ALPHA),
@@ -219,8 +212,7 @@ fn setup(
     pos += Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.01);
     spawn_player(
         &mut commands,
-        &asset_server,
-        &mut texture_atlases,
+        &assets,
         Player::Two,
         pos,
         Keys {
@@ -229,10 +221,6 @@ fn setup(
             jump: KeyCode::Up,
             attack: KeyCode::Down,
         },
-        "player_two.png",
-        Vec2::new(1600.0, 1600.0),
-        8,
-        8,
         Vec3::new(0.0, 0.0, PLAYER_Z + 0.02),
         Vec3::new(25.0, 58.0, 1.0) * PLAYER_SCALE,
         Color::rgba(0.0, 1.0, 0.0, COLLIDER_ALPHA),
@@ -245,15 +233,10 @@ fn setup(
 /// Spawn players.
 fn spawn_player(
     commands: &mut Commands,
-    asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
+    assets: &Res<GameAssets>,
     player: Player,
     player_pos: Vec3,
     keys: Keys,
-    spritesheet_path: &str,
-    sprite_size: Vec2,
-    sprite_x_frames: usize,
-    sprite_y_frames: usize,
     collider_box_pos: Vec3,
     collider_box_size: Vec3,
     collider_box_color: Color,
@@ -261,14 +244,10 @@ fn spawn_player(
     attack_box_size: Vec3,
     attack_box_color: Color,
 ) {
-    let player_atlas_handle = load_sprite(
-        &asset_server,
-        texture_atlases,
-        spritesheet_path,
-        sprite_size,
-        sprite_x_frames,
-        sprite_y_frames,
-    );
+    let player_atlas_handle = match player {
+        Player::One => assets.player_one_texture_atlas.clone(),
+        Player::Two => assets.player_two_texture_atlas.clone(),
+    };
 
     let player_tex_scale = match player {
         Player::One => Vec3::new(PLAYER_SCALE, PLAYER_SCALE, 1.0), // Right facing
@@ -342,25 +321,6 @@ fn spawn_player(
                     ..default()
                 });
         });
-}
-
-/// Load an animated sprite sheet for the player.
-fn load_sprite(
-    asset_server: &Res<AssetServer>,
-    texture_atlases: &mut ResMut<Assets<TextureAtlas>>,
-    path: &str,
-    size: Vec2,
-    x_frames: usize,
-    y_frames: usize,
-) -> Handle<TextureAtlas> {
-    let image: Handle<Image> = asset_server.load(path);
-    let texture_atlas = TextureAtlas::from_grid(
-        image,
-        Vec2::new(size.x / x_frames as f32, size.y / y_frames as f32),
-        x_frames,
-        y_frames,
-    );
-    texture_atlases.add(texture_atlas)
 }
 
 /// Handle play input.
