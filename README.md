@@ -6,6 +6,7 @@ Assets:
 - [Oak Woods Assets](https://brullov.itch.io/oak-woods)
 - [Fighter Asset #1](https://luizmelo.itch.io/martial-hero)
 - [Fighter Asset #2](https://luizmelo.itch.io/martial-hero-2)
+- [m6x11 a 6px by 11px font by Daniel Linssen](https://managore.itch.io/m6x11)
 
 ## Building
 

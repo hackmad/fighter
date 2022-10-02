@@ -22,7 +22,7 @@ const JUMP_VELOCITY: f32 = 20.0;
 const HORIZ_VELOCITY: f32 = 5.0;
 
 /// Collider alpha (used for displaying collider for debugging).
-const COLLIDER_ALPHA: f32 = 0.2;
+const COLLIDER_ALPHA: f32 = 0.0;
 
 /// Starting health stat.
 const MAX_HEALTH: u8 = 100;
