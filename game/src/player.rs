@@ -1,6 +1,7 @@
 //! Player
 
 use crate::common::*;
+use crate::HealthUpdateEvent;
 use crate::GROUND_Y;
 use bevy::app::Plugin;
 use bevy::prelude::*;
@@ -21,10 +22,10 @@ const JUMP_VELOCITY: f32 = 20.0;
 const HORIZ_VELOCITY: f32 = 5.0;
 
 /// Collider alpha (used for displaying collider for debugging).
-const COLLIDER_ALPHA: f32 = 0.0;
+const COLLIDER_ALPHA: f32 = 0.2;
 
 /// Starting health stat.
-const MAX_HEALTH: u16 = 100;
+const MAX_HEALTH: u8 = 100;
 
 /// Animation frame used to determine collisions a player's attack.
 const ATTACK_FRAMES: [usize; 2] = [4, 2];
@@ -82,13 +83,13 @@ pub enum Player {
     Two,
 }
 impl Player {
-    fn index(&self) -> usize {
+    pub fn index(&self) -> usize {
         match self {
             Self::One => 0,
             Self::Two => 1,
         }
     }
-    fn opponent(&self) -> Self {
+    pub fn opponent(&self) -> Self {
         match self {
             Self::One => Self::Two,
             Self::Two => Self::One,
@@ -168,18 +169,7 @@ struct CurrentFrame(usize);
 
 /// Represents the health.
 #[derive(Component, Deref, DerefMut)]
-struct Health(u16);
-
-/// Used to communicate changes to the player's health with other systems.
-pub struct HealthUpdateEvent {
-    pub player: Player,
-    pub health: u16,
-}
-impl HealthUpdateEvent {
-    fn new(player: Player, health: u16) -> Self {
-        HealthUpdateEvent { player, health }
-    }
-}
+struct Health(u8);
 
 /// Setup the players.
 fn setup(
@@ -188,8 +178,8 @@ fn setup(
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     // Player 1: Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
-    let mut pos = Vec3::new(-300.0, GROUND_Y, 0.2);
-    pos += Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.21);
+    let mut pos = Vec3::new(-300.0, GROUND_Y, PLAYER_Z);
+    pos += Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.01);
     spawn_player(
         &mut commands,
         &asset_server,
@@ -206,17 +196,17 @@ fn setup(
         Vec2::new(1600.0, 1800.0),
         8,
         9,
-        Vec3::new(0.0, 15.0, 0.22),
+        Vec3::new(0.0, 15.0, PLAYER_Z + 0.02),
         Vec3::new(30.0, 55.0, 1.0) * PLAYER_SCALE,
         Color::rgba(1.0, 0.0, 0.0, COLLIDER_ALPHA),
-        Vec3::new(145.0, 56.0, 0.23),
+        Vec3::new(145.0, 56.0, PLAYER_Z + 0.03),
         Vec3::new(75.0, 25.0, 1.0) * PLAYER_SCALE,
         Color::rgba(1.0, 1.0, 0.0, COLLIDER_ALPHA),
     );
 
     // Player 2: Adjust player feet. (Height=200, y-feet=128 => y-center=100 => y-offset=28).
-    pos = Vec3::new(300.0, GROUND_Y, 0.2);
-    pos += Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.21);
+    pos = Vec3::new(300.0, GROUND_Y, PLAYER_Z);
+    pos += Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.01);
     spawn_player(
         &mut commands,
         &asset_server,
@@ -233,10 +223,10 @@ fn setup(
         Vec2::new(1600.0, 1600.0),
         8,
         8,
-        Vec3::new(0.0, 0.0, 0.22),
+        Vec3::new(0.0, 0.0, PLAYER_Z + 0.02),
         Vec3::new(25.0, 58.0, 1.0) * PLAYER_SCALE,
         Color::rgba(0.0, 1.0, 0.0, COLLIDER_ALPHA),
-        Vec3::new(-130.0, 32.0, 0.23),
+        Vec3::new(-130.0, 32.0, PLAYER_Z + 0.03),
         Vec3::new(70.0, 35.0, 1.0) * PLAYER_SCALE,
         Color::rgba(1.0, 0.0, 1.0, COLLIDER_ALPHA),
     );
@@ -601,8 +591,7 @@ fn collision_system(
                         if new_health < 0 {
                             new_health = 0;
                         }
-                        health.0 = new_health as u16;
-
+                        health.0 = new_health as u8;
                         health_update_events.send(HealthUpdateEvent::new(*player, health.0));
                     }
                 }

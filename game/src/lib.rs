@@ -1,10 +1,12 @@
 mod common;
+mod health;
 mod player;
 mod scene;
 mod utils;
 
 use bevy::{prelude::*, render::texture::ImageSettings, window::PresentMode};
 use common::*;
+use health::*;
 use player::*;
 use scene::*;
 
@@ -20,10 +22,10 @@ pub fn run() {
             ..default()
         })
         .add_plugins(DefaultPlugins)
-        .add_plugin(PlayerPlugin)
         .add_plugin(ScenePlugin)
+        .add_plugin(PlayerPlugin)
+        .add_plugin(HealthPlugin)
         .add_startup_system(setup)
-        .add_system(health_update_system)
         //.add_system(bevy::window::close_on_esc)
         .run();
 }
@@ -31,13 +33,4 @@ pub fn run() {
 /// Setup the game.
 fn setup(mut commands: Commands) {
     commands.spawn_bundle(Camera2dBundle::default());
-}
-
-/// Process player health updates.
-fn health_update_system(mut health_update_events: EventReader<HealthUpdateEvent>) {
-    if !health_update_events.is_empty() {
-        for event in health_update_events.iter() {
-            println!("Player {:?} hit. Health = {}.", event.player, event.health);
-        }
-    }
 }

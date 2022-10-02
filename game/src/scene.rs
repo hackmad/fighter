@@ -44,7 +44,7 @@ fn setup(
     commands.spawn_bundle(SpriteBundle {
         texture: bg_image,
         transform: Transform::from_xyz(0.0, 0.0, 0.0)
-            .with_scale(Vec3::new(BG_SCALE, BG_SCALE, 1.0)),
+            .with_scale(Vec3::new(BG_SCALE, BG_SCALE, BG_Z)),
         ..default()
     });
 
@@ -62,8 +62,11 @@ fn setup(
         .insert(Shop)
         .insert_bundle(SpriteSheetBundle {
             texture_atlas: shop_atlas_handle,
-            transform: Transform::from_xyz(280.0, -28.5, 0.1)
-                .with_scale(Vec3::new(SHOP_SCALE, SHOP_SCALE, 1.0)),
+            transform: Transform {
+                translation: Vec3::new(280.0, -28.5, BG_Z + 0.01),
+                scale: Vec3::new(SHOP_SCALE, SHOP_SCALE, 1.0),
+                ..default()
+            },
             ..default()
         })
         .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
