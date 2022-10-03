@@ -51,7 +51,7 @@ The following will build with `--release` by default:
 
 ```bash
 cd browser
-wasm-pack build
+wasm-pack build -p browser --out-dir ./pkg
 ```
 
 The following steps are for the first time setup only, 
@@ -81,7 +81,7 @@ Update `browser/www/package.json`:
   },
   // ...
   "devDependencies": {
-    "browser": "file:../pkg", // Add this line!
+    "browser": "file:./pkg", // Add this line!
     // ...
   }
   // ...
