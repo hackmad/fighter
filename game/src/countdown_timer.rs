@@ -1,6 +1,6 @@
 //! Countdown Timer
 
-use crate::{common::*, GameAssets, GameStates};
+use crate::{common::*, GameAssets, GameState};
 use bevy::prelude::*;
 
 /// Starting value for countdown timer.
@@ -12,8 +12,14 @@ pub struct CountdownTimerPlugin;
 impl Plugin for CountdownTimerPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<CountdownCompleteEvent>()
-            .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
-            .add_system_set(SystemSet::on_update(GameStates::Next).with_system(countdown_system));
+            .add_system_set(
+                // Setup countdown timer.
+                SystemSet::on_enter(GameState::InGame).with_system(setup),
+            )
+            .add_system_set(
+                // Enable countdown timer during game play.
+                SystemSet::on_update(GameState::InGame).with_system(countdown_system),
+            );
     }
 }
 
@@ -23,6 +29,7 @@ struct CountdownTimer {
     remaining: u16,
     done: bool,
 }
+
 impl Default for CountdownTimer {
     fn default() -> Self {
         Self {
@@ -66,6 +73,7 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
         ..default()
     });
 
+    // The timer.
     commands
         .spawn()
         .insert_bundle(NodeBundle {

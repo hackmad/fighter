@@ -1,9 +1,6 @@
 //! Player
 
-use crate::common::*;
-use crate::GameAssets;
-use crate::GameStates;
-use crate::GROUND_Y;
+use crate::{common::*, GameAssets, GameState, GROUND_Y};
 use bevy::app::Plugin;
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::collide;
@@ -66,17 +63,23 @@ pub(crate) struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HealthUpdateEvent>()
-            .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
             .add_system_set(
-                SystemSet::on_update(GameStates::Next)
+                // Setup the players.
+                SystemSet::on_enter(GameState::InGame).with_system(setup),
+            )
+            .add_system_set(
+                // Enable all systems for game play.
+                SystemSet::on_update(GameState::InGame)
                     .with_system(collision_system)
                     .with_system(input_system.before(collision_system))
                     .with_system(movement_system.before(collision_system))
                     .with_system(animation_system),
             )
             .add_system_set(
-                // This will ensure movement/animations can complete on Game Over.
-                SystemSet::on_update(GameStates::GameOver)
+                // Enabled animation and movement system which will ensure movement/animations
+                // can complete on Game Over. Since input system is not enabled it will not allow
+                // game play anymore.
+                SystemSet::on_update(GameState::GameOver)
                     .with_system(animation_system)
                     .with_system(movement_system),
             );
@@ -89,6 +92,7 @@ pub(crate) enum Player {
     One,
     Two,
 }
+
 impl Player {
     pub(crate) fn index(&self) -> usize {
         match self {
@@ -115,6 +119,7 @@ enum State {
     Running,
     TakingHit,
 }
+
 impl Default for State {
     fn default() -> Self {
         Self::Idling
@@ -124,6 +129,7 @@ impl Default for State {
 /// Represents player's current state.
 #[derive(Component, Default, Deref, DerefMut)]
 struct CurrentState(State);
+
 impl CurrentState {
     fn set_state(&mut self, state: State) {
         self.0 = state;
@@ -136,6 +142,7 @@ impl CurrentState {
 /// Represents player's previous state.
 #[derive(Component, Default, Deref, DerefMut)]
 struct PreviousState(State);
+
 impl PreviousState {
     fn set_state(&mut self, state: State) {
         self.0 = state;
@@ -183,6 +190,7 @@ pub(crate) struct HealthUpdateEvent {
     pub(crate) player: Player,
     pub(crate) health: u8,
 }
+
 impl HealthUpdateEvent {
     pub(crate) fn new(player: Player, health: u8) -> Self {
         HealthUpdateEvent { player, health }

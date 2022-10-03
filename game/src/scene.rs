@@ -1,6 +1,6 @@
 //! Scene
 
-use crate::{common::*, GameAssets, GameStates};
+use crate::{common::*, GameAssets, GameState};
 use bevy::app::Plugin;
 use bevy::prelude::*;
 
@@ -24,11 +24,22 @@ pub(crate) struct ScenePlugin;
 
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
-            .add_system_set(SystemSet::on_update(GameStates::Next).with_system(animation_system))
-            .add_system_set(
-                SystemSet::on_update(GameStates::GameOver).with_system(animation_system),
-            );
+        app.add_system_set(
+            // Setup scene.
+            SystemSet::on_enter(GameState::MainMenu).with_system(setup),
+        )
+        .add_system_set(
+            // Enable animation system.
+            SystemSet::on_update(GameState::MainMenu).with_system(animation_system),
+        )
+        .add_system_set(
+            // Enable animation system.
+            SystemSet::on_update(GameState::InGame).with_system(animation_system),
+        )
+        .add_system_set(
+            // Enable animation system.
+            SystemSet::on_update(GameState::GameOver).with_system(animation_system),
+        );
     }
 }
 /// Represents the shop sprite.

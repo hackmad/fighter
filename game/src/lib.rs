@@ -3,6 +3,7 @@
 mod common;
 mod countdown_timer;
 mod health;
+mod main_menu;
 mod player;
 mod scene;
 mod utils;
@@ -12,6 +13,7 @@ use bevy_asset_loader::prelude::*;
 use common::*;
 use countdown_timer::*;
 use health::*;
+use main_menu::*;
 use player::*;
 use scene::*;
 
@@ -27,18 +29,19 @@ pub fn run() {
             ..default()
         })
         .add_loading_state(
-            LoadingState::new(GameStates::AssetLoading)
-                .continue_to_state(GameStates::Next)
+            LoadingState::new(GameState::AssetLoading)
+                .continue_to_state(GameState::MainMenu)
                 .with_collection::<GameAssets>(),
         )
-        .add_state(GameStates::AssetLoading)
+        .add_state(GameState::AssetLoading)
         .add_plugins(DefaultPlugins)
+        .add_plugin(MainMenuPlugin)
         .add_plugin(ScenePlugin)
         .add_plugin(PlayerPlugin)
         .add_plugin(HealthPlugin)
         .add_plugin(CountdownTimerPlugin)
-        .add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
-        .add_system_set(SystemSet::on_update(GameStates::Next).with_system(game_over_system))
+        .add_system_set(SystemSet::on_enter(GameState::MainMenu).with_system(setup))
+        .add_system_set(SystemSet::on_update(GameState::InGame).with_system(game_over_system))
         .run();
 }
 
@@ -66,9 +69,10 @@ pub(crate) struct GameAssets {
 
 /// Game states.
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
-enum GameStates {
+enum GameState {
     AssetLoading,
-    Next,
+    MainMenu,
+    InGame,
     GameOver,
 }
 
@@ -116,7 +120,7 @@ fn game_over_system(
     mut text_query: Query<(&mut Text, &mut Visibility), With<GameOver>>,
     health_query: Query<(&Player, &Health)>,
     mut health_update_events: EventReader<HealthUpdateEvent>,
-    mut app_state: ResMut<State<GameStates>>,
+    mut app_state: ResMut<State<GameState>>,
 ) {
     let mut game_over = false;
 
@@ -160,6 +164,6 @@ fn game_over_system(
         visibility.is_visible = true;
 
         // Transition game state.
-        app_state.set(GameStates::GameOver).unwrap();
+        app_state.set(GameState::GameOver).unwrap();
     }
 }

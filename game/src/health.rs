@@ -1,24 +1,34 @@
 //! Health
 
-use crate::common::*;
-use crate::GameStates;
-use crate::HealthUpdateEvent;
-use crate::Player;
+use crate::{GameState, HealthUpdateEvent, Player, HEALTH_BAR_Z};
 use bevy::prelude::*;
 use std::collections::HashMap;
 
 /// Health bar maximum width for 100% health.
 const HEALTH_BAR_MAX_WIDTH: f32 = 400.0;
 
+/// Health bar size.
+const HEALTH_BAR_SIZE: Vec3 = Vec3::new(HEALTH_BAR_MAX_WIDTH, 30.0, 1.0);
+
+/// Health bar positions.
+const HEALTH_BAR_POS: [Vec3; 2] = [
+    Vec3::new(-250.0, 225.0, HEALTH_BAR_Z),
+    Vec3::new(250.0, 225.0, HEALTH_BAR_Z),
+];
+
 /// Handles the health.
 pub(crate) struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_enter(GameStates::Next).with_system(setup))
-            .add_system_set(
-                SystemSet::on_update(GameStates::Next).with_system(health_update_system),
-            );
+        app.add_system_set(
+            // Setup health bars.
+            SystemSet::on_enter(GameState::InGame).with_system(setup),
+        )
+        .add_system_set(
+            // Enable health update during game play.
+            SystemSet::on_update(GameState::InGame).with_system(health_update_system),
+        );
     }
 }
 
@@ -33,63 +43,53 @@ impl Default for HealthBar {
 
 /// Setup.
 fn setup(mut commands: Commands) {
-    spawn_health_bar(&mut commands, Player::One);
-    spawn_health_bar(&mut commands, Player::Two);
-}
-
-fn spawn_health_bar(commands: &mut Commands, player: Player) {
-    let health_bar_pos = match player {
-        Player::One => Vec3::new(-250.0, 225.0, HEALTH_BAR_Z),
-        Player::Two => Vec3::new(250.0, 225.0, HEALTH_BAR_Z),
-    };
-
-    let health_bar_size = Vec3::new(HEALTH_BAR_MAX_WIDTH, 30.0, 1.0);
-
-    // Background of health bar.
-    commands.spawn().insert_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: Color::WHITE,
-            ..default()
-        },
-        transform: Transform {
-            translation: health_bar_pos,
-            scale: health_bar_size + Vec3::new(4.0, 4.0, 0.0),
-            ..default()
-        },
-        ..default()
-    });
-
-    // Damage reveal for health bar.
-    commands.spawn().insert_bundle(SpriteBundle {
-        sprite: Sprite {
-            color: Color::RED,
-            ..default()
-        },
-        transform: Transform {
-            translation: health_bar_pos + Vec3::new(0.0, 0.0, 0.01),
-            scale: health_bar_size,
-            ..default()
-        },
-        ..default()
-    });
-
-    // Health bar.
-    commands
-        .spawn()
-        .insert(HealthBar::default())
-        .insert(player)
-        .insert_bundle(SpriteBundle {
+    for player in [Player::One, Player::Two] {
+        // Background of health bar.
+        commands.spawn().insert_bundle(SpriteBundle {
             sprite: Sprite {
-                color: Color::rgb(0.502, 0.549, 0.984),
+                color: Color::WHITE,
                 ..default()
             },
             transform: Transform {
-                translation: health_bar_pos + Vec3::new(0.0, 0.0, 0.02),
-                scale: health_bar_size,
+                translation: HEALTH_BAR_POS[player.index()],
+                scale: HEALTH_BAR_SIZE + Vec3::new(4.0, 4.0, 0.0),
                 ..default()
             },
             ..default()
         });
+
+        // Damage reveal for health bar.
+        commands.spawn().insert_bundle(SpriteBundle {
+            sprite: Sprite {
+                color: Color::RED,
+                ..default()
+            },
+            transform: Transform {
+                translation: HEALTH_BAR_POS[player.index()] + Vec3::new(0.0, 0.0, 0.01),
+                scale: HEALTH_BAR_SIZE,
+                ..default()
+            },
+            ..default()
+        });
+
+        // Health bar.
+        commands
+            .spawn()
+            .insert(HealthBar::default())
+            .insert(player)
+            .insert_bundle(SpriteBundle {
+                sprite: Sprite {
+                    color: Color::rgb(0.502, 0.549, 0.984),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: HEALTH_BAR_POS[player.index()] + Vec3::new(0.0, 0.0, 0.02),
+                    scale: HEALTH_BAR_SIZE,
+                    ..default()
+                },
+                ..default()
+            });
+    }
 }
 
 /// Process player health updates.
