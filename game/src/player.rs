@@ -1,9 +1,7 @@
 //! Player
 
-use crate::{common::*, GameAssets, GameState, GROUND_Y};
-use bevy::app::Plugin;
-use bevy::prelude::*;
-use bevy::sprite::collide_aabb::collide;
+use crate::{common::*, CountdownCompleteEvent, GameAssets, GameState, GROUND_Y};
+use bevy::{app::Plugin, prelude::*, sprite::collide_aabb::collide};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
@@ -28,8 +26,8 @@ const MAX_HEALTH: u8 = 100;
 /// Animation frame used to determine collisions a player's attack.
 const ATTACK_FRAMES: [usize; 2] = [4, 2];
 
-/// Attack damage of player. Player one has slow powerful attack while player two
-/// has quick weaker attack (based on number of frames of animation).
+/// Attack damage of player. Player one has slow powerful attack while player two has quick weaker
+/// attack (based on number of frames of animation).
 const ATTACK_DAMAGES: [u16; 2] = [10_u16, 8_u16];
 
 lazy_static! {
@@ -63,27 +61,33 @@ pub(crate) struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<HealthUpdateEvent>()
+            // Setup the players when we enter game play.
+            .add_system_set(SystemSet::on_enter(GameState::InGame).with_system(setup))
+            // Enable all systems for game play updates.
             .add_system_set(
-                // Setup the players.
-                SystemSet::on_enter(GameState::InGame).with_system(setup),
-            )
-            .add_system_set(
-                // Enable all systems for game play.
                 SystemSet::on_update(GameState::InGame)
                     .with_system(collision_system)
-                    .with_system(input_system.before(collision_system))
+                    .with_system(game_play_input_system.before(collision_system))
                     .with_system(movement_system.before(collision_system))
-                    .with_system(animation_system),
+                    .with_system(animation_system)
+                    .with_system(game_over_system),
             )
+            // Enabling animation and movement system will ensure movement/animations can
+            // complete on Game Over. Since input system is not enabled it will not allow
+            // game play anymore.
             .add_system_set(
-                // Enabled animation and movement system which will ensure movement/animations
-                // can complete on Game Over. Since input system is not enabled it will not allow
-                // game play anymore.
                 SystemSet::on_update(GameState::GameOver)
                     .with_system(animation_system)
                     .with_system(movement_system),
-            );
+            )
+            // Cleanup resources on leaving game over state.
+            .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(cleanup));
     }
+}
+
+/// Player entities.
+struct EntityData {
+    entities: Vec<Entity>,
 }
 
 /// Represents the player.
@@ -108,7 +112,7 @@ impl Player {
     }
 }
 
-/// Player states.
+/// Represents player states.
 #[derive(Copy, Clone, Debug, Eq, Hash, PartialEq)]
 enum State {
     Attacking,
@@ -199,10 +203,12 @@ impl HealthUpdateEvent {
 
 /// Setup the players.
 fn setup(mut commands: Commands, assets: Res<GameAssets>) {
+    let mut entities: Vec<Entity> = Vec::new();
+
     // Player 1: Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
     let mut pos = Vec3::new(-300.0, GROUND_Y, PLAYER_Z);
     pos += Vec3::new(0.0, 22.0 * PLAYER_SCALE, 0.01);
-    spawn_player(
+    entities.push(spawn_player(
         &mut commands,
         &assets,
         Player::One,
@@ -219,12 +225,12 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
         Vec3::new(145.0, 56.0, PLAYER_Z + 0.03),
         Vec3::new(75.0, 25.0, 1.0) * PLAYER_SCALE,
         Color::rgba(1.0, 1.0, 0.0, COLLIDER_ALPHA),
-    );
+    ));
 
     // Player 2: Adjust player feet. (Height=200, y-feet=128 => y-center=100 => y-offset=28).
     pos = Vec3::new(300.0, GROUND_Y, PLAYER_Z);
     pos += Vec3::new(0.0, 28.0 * PLAYER_SCALE, 0.01);
-    spawn_player(
+    entities.push(spawn_player(
         &mut commands,
         &assets,
         Player::Two,
@@ -241,7 +247,9 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
         Vec3::new(-130.0, 32.0, PLAYER_Z + 0.03),
         Vec3::new(70.0, 35.0, 1.0) * PLAYER_SCALE,
         Color::rgba(1.0, 0.0, 1.0, COLLIDER_ALPHA),
-    );
+    ));
+
+    commands.insert_resource(EntityData { entities });
 }
 
 /// Spawn players.
@@ -257,7 +265,7 @@ fn spawn_player(
     attack_box_pos: Vec3,
     attack_box_size: Vec3,
     attack_box_color: Color,
-) {
+) -> Entity {
     let player_atlas_handle = match player {
         Player::One => assets.player_one_texture_atlas.clone(),
         Player::Two => assets.player_two_texture_atlas.clone(),
@@ -334,11 +342,12 @@ fn spawn_player(
                     },
                     ..default()
                 });
-        });
+        })
+        .id()
 }
 
 /// Handle play input.
-fn input_system(
+fn game_play_input_system(
     keyboard_input: Res<Input<KeyCode>>,
     mut player_query: Query<
         (
@@ -407,6 +416,7 @@ fn movement_system(
         &CurrentFrame,
         &Health,
     )>,
+    app_state: Res<bevy::prelude::State<GameState>>,
 ) {
     let mut new_velocities = [Vec2::default(); 2];
     let mut move_x = [false; 2];
@@ -440,6 +450,21 @@ fn movement_system(
             // Player has hit the ground. Reset velocity and position.
             transform.translation.y = ground_y.0;
             velocity.y = 0.0;
+        }
+
+        // Check if game over.
+        match app_state.current() {
+            GameState::GameOver => {
+                // Once player is on ground move to idle state so player doesn't continue
+                // running or jumping.
+                if transform.translation.y <= ground_y.0 {
+                    current_state.0 = State::Idling;
+                    velocity.x = 0.0;
+                    velocity.y = 0.0;
+                    continue;
+                }
+            }
+            _ => (),
         }
 
         // Check if player is dying.
@@ -642,5 +667,46 @@ fn next_player_sprite_frame(mut current: usize, start: usize, end: usize) -> (us
         } else {
             (current, false)
         }
+    }
+}
+
+/// Checks if game is over.
+fn game_over_system(
+    mut countdown_complete_events: EventReader<CountdownCompleteEvent>,
+    mut health_update_events: EventReader<HealthUpdateEvent>,
+    mut app_state: ResMut<bevy::prelude::State<GameState>>,
+) {
+    let mut game_over = false;
+
+    // Check if countdown is complete.
+    if !countdown_complete_events.is_empty() {
+        for _event in countdown_complete_events.iter() {
+            game_over = true;
+            break;
+        }
+    }
+
+    if !game_over {
+        // Check if one player has 0 health.
+        if !health_update_events.is_empty() {
+            for event in health_update_events.iter() {
+                if event.health == 0 {
+                    game_over = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if game_over {
+        // Transition game state.
+        app_state.set(GameState::GameOver).unwrap();
+    }
+}
+
+/// Cleanup resources.
+fn cleanup(mut commands: Commands, entity_data: Res<EntityData>) {
+    for entity in entity_data.entities.iter() {
+        commands.entity(*entity).despawn_recursive();
     }
 }

@@ -21,15 +21,15 @@ pub(crate) struct HealthPlugin;
 
 impl Plugin for HealthPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            // Setup health bars.
-            SystemSet::on_enter(GameState::InGame).with_system(setup),
-        )
-        .add_system_set(
-            // Enable health update during game play.
-            SystemSet::on_update(GameState::InGame).with_system(health_update_system),
-        );
+        app.add_system_set(SystemSet::on_enter(GameState::InGame).with_system(setup))
+            .add_system_set(SystemSet::on_update(GameState::InGame).with_system(update_system))
+            .add_system_set(SystemSet::on_exit(GameState::InGame).with_system(cleanup));
     }
+}
+
+/// Health bar entities.
+struct EntityData {
+    entities: Vec<Entity>,
 }
 
 /// Represents the health bar of a player storing percent health.
@@ -43,57 +43,74 @@ impl Default for HealthBar {
 
 /// Setup.
 fn setup(mut commands: Commands) {
+    let mut entities: Vec<Entity> = Vec::new();
+
     for player in [Player::One, Player::Two] {
         // Background of health bar.
-        commands.spawn().insert_bundle(SpriteBundle {
-            sprite: Sprite {
-                color: Color::WHITE,
-                ..default()
-            },
-            transform: Transform {
-                translation: HEALTH_BAR_POS[player.index()],
-                scale: HEALTH_BAR_SIZE + Vec3::new(4.0, 4.0, 0.0),
-                ..default()
-            },
-            ..default()
-        });
+        entities.push(
+            commands
+                .spawn()
+                .insert_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::WHITE,
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: HEALTH_BAR_POS[player.index()],
+                        scale: HEALTH_BAR_SIZE + Vec3::new(4.0, 4.0, 0.0),
+                        ..default()
+                    },
+                    ..default()
+                })
+                .id(),
+        );
 
         // Damage reveal for health bar.
-        commands.spawn().insert_bundle(SpriteBundle {
-            sprite: Sprite {
-                color: Color::RED,
-                ..default()
-            },
-            transform: Transform {
-                translation: HEALTH_BAR_POS[player.index()] + Vec3::new(0.0, 0.0, 0.01),
-                scale: HEALTH_BAR_SIZE,
-                ..default()
-            },
-            ..default()
-        });
+        entities.push(
+            commands
+                .spawn()
+                .insert_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::RED,
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: HEALTH_BAR_POS[player.index()] + Vec3::new(0.0, 0.0, 0.01),
+                        scale: HEALTH_BAR_SIZE,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .id(),
+        );
 
         // Health bar.
-        commands
-            .spawn()
-            .insert(HealthBar::default())
-            .insert(player)
-            .insert_bundle(SpriteBundle {
-                sprite: Sprite {
-                    color: Color::rgb(0.502, 0.549, 0.984),
+        entities.push(
+            commands
+                .spawn()
+                .insert(HealthBar::default())
+                .insert(player)
+                .insert_bundle(SpriteBundle {
+                    sprite: Sprite {
+                        color: Color::rgb(0.502, 0.549, 0.984),
+                        ..default()
+                    },
+                    transform: Transform {
+                        translation: HEALTH_BAR_POS[player.index()] + Vec3::new(0.0, 0.0, 0.02),
+                        scale: HEALTH_BAR_SIZE,
+                        ..default()
+                    },
                     ..default()
-                },
-                transform: Transform {
-                    translation: HEALTH_BAR_POS[player.index()] + Vec3::new(0.0, 0.0, 0.02),
-                    scale: HEALTH_BAR_SIZE,
-                    ..default()
-                },
-                ..default()
-            });
+                })
+                .id(),
+        );
     }
+
+    commands.insert_resource(EntityData { entities });
 }
 
 /// Process player health updates.
-fn health_update_system(
+fn update_system(
     mut health_update_events: EventReader<HealthUpdateEvent>,
     mut health_bar_query: Query<(&Player, &mut HealthBar, &mut Transform), With<Sprite>>,
 ) {
@@ -120,5 +137,12 @@ fn health_update_system(
             transform.scale.x -= hp * HEALTH_BAR_MAX_WIDTH;
             health_bar.0 = *health;
         }
+    }
+}
+
+/// Cleanup resources.
+fn cleanup(mut commands: Commands, entity_data: Res<EntityData>) {
+    for entity in entity_data.entities.iter() {
+        commands.entity(*entity).despawn_recursive();
     }
 }

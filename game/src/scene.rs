@@ -1,8 +1,7 @@
 //! Scene
 
 use crate::{common::*, GameAssets, GameState};
-use bevy::app::Plugin;
-use bevy::prelude::*;
+use bevy::{app::Plugin, prelude::*};
 
 /// Scaling factor for background sprite.
 const BG_SCALE: f32 = 3.2;
@@ -24,51 +23,65 @@ pub(crate) struct ScenePlugin;
 
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            // Setup scene.
-            SystemSet::on_enter(GameState::MainMenu).with_system(setup),
-        )
-        .add_system_set(
-            // Enable animation system.
-            SystemSet::on_update(GameState::MainMenu).with_system(animation_system),
-        )
-        .add_system_set(
-            // Enable animation system.
-            SystemSet::on_update(GameState::InGame).with_system(animation_system),
-        )
-        .add_system_set(
-            // Enable animation system.
-            SystemSet::on_update(GameState::GameOver).with_system(animation_system),
-        );
+        app
+            // Setup the scene when entering main menu.
+            .add_system_set(SystemSet::on_enter(GameState::MainMenu).with_system(setup))
+            // Run animation system in all game states.
+            .add_system_set(SystemSet::on_update(GameState::MainMenu).with_system(animation_system))
+            .add_system_set(SystemSet::on_update(GameState::InGame).with_system(animation_system))
+            .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(animation_system))
+            // Cleanup resources on leaving game over state.
+            .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(cleanup));
     }
 }
+
+/// Scene entities.
+struct EntityData {
+    entities: Vec<Entity>,
+}
+
 /// Represents the shop sprite.
 #[derive(Component)]
 struct Shop;
 
 /// Setup the scene.
 fn setup(mut commands: Commands, assets: Res<GameAssets>) {
-    // Background sprite.
-    commands.spawn_bundle(SpriteBundle {
-        texture: assets.background_image.clone(),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0)
-            .with_scale(Vec3::new(BG_SCALE, BG_SCALE, BG_Z)),
-        ..default()
-    });
+    let mut entities: Vec<Entity> = Vec::new();
 
-    commands
-        .spawn()
-        .insert(Shop)
-        .insert_bundle(SpriteSheetBundle {
-            texture_atlas: assets.shop_texture_atlas.clone(),
-            transform: Transform {
-                translation: Vec3::new(280.0, -28.5, BG_Z + 0.01),
-                scale: Vec3::new(SHOP_SCALE, SHOP_SCALE, 1.0),
+    // Setup camera.
+    entities.push(commands.spawn_bundle(Camera2dBundle::default()).id());
+
+    // Background sprite.
+    entities.push(
+        commands
+            .spawn_bundle(SpriteBundle {
+                texture: assets.background_image.clone(),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0)
+                    .with_scale(Vec3::new(BG_SCALE, BG_SCALE, BG_Z)),
                 ..default()
-            },
-            ..default()
-        })
-        .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
+            })
+            .id(),
+    );
+
+    // Animated shop sprite.
+    entities.push(
+        commands
+            .spawn()
+            .insert(Shop)
+            .insert_bundle(SpriteSheetBundle {
+                texture_atlas: assets.shop_texture_atlas.clone(),
+                transform: Transform {
+                    translation: Vec3::new(280.0, -28.5, BG_Z + 0.01),
+                    scale: Vec3::new(SHOP_SCALE, SHOP_SCALE, 1.0),
+                    ..default()
+                },
+                ..default()
+            })
+            .insert(AnimationTimer(Timer::from_seconds(0.1, true)))
+            .id(),
+    );
+
+    commands.insert_resource(EntityData { entities });
 }
 
 /// Animate the shop sprite.
@@ -90,5 +103,12 @@ fn animation_system(
             let texture_atlas = texture_atlases.get(texture_atlas_handle).unwrap();
             sprite.index = (sprite.index + 1) % texture_atlas.textures.len();
         }
+    }
+}
+
+/// Cleanup resources.
+fn cleanup(mut commands: Commands, entity_data: Res<EntityData>) {
+    for entity in entity_data.entities.iter() {
+        commands.entity(*entity).despawn_recursive();
     }
 }
