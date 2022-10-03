@@ -10,7 +10,4 @@ opt-level = 3 # High optimizations for dependencies (incl. Bevy), but not for ou
 
 [profile.release]
 lto = "thin"
-
-[profile.release-browser]
-inherits = "release"
 opt-level = "s" # Small code size

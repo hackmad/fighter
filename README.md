@@ -33,6 +33,12 @@ This compiles a native binary for the game.
 cargo build -p native
 ```
 
+To build release version:
+
+```bash
+cargo build -p native --release
+```
+
 ## browser
 
 This is for the WebAssembly game and uses [wasm-pack](https://github.com/rustwasm/wasm-pack).
@@ -40,6 +46,8 @@ It can't be build form the workspace root so you have to change to the
 project folder first.
 
 __NOTE:__ This relies on `Node 16.13.0 LTS`.
+
+The following will build with `--release` by default:
 
 ```bash
 cd browser
