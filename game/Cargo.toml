@@ -4,6 +4,10 @@ version = "0.0.1"
 authors = ["Ahmad Kabani <ahmadkabani@yahoo.com>"]
 edition = "2021"
 
+[features]
+native = []
+web = []
+
 [dependencies]
 bevy = { version = "0.8.1" }
 bevy_asset_loader = { version = "0.12.1", features = ["2d"] }

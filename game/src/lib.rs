@@ -29,7 +29,7 @@ pub fn run() {
             title: "Fighter".to_string(),
             width: WINDOW_WIDTH,
             height: WINDOW_HEIGHT,
-            present_mode: PresentMode::AutoVsync,
+            present_mode: PresentMode::AutoNoVsync,
             ..default()
         })
         .add_loading_state(

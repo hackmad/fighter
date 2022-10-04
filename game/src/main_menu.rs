@@ -51,12 +51,14 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
                                 })
                                 .insert(MenuButton::Play);
 
-                            parent
-                                .spawn_bundle(menu_button())
-                                .with_children(|parent| {
-                                    parent.spawn_bundle(menu_button_text(&assets, "QUIT"));
-                                })
-                                .insert(MenuButton::Quit);
+                            if cfg!(feature = "native") {
+                                parent
+                                    .spawn_bundle(menu_button())
+                                    .with_children(|parent| {
+                                        parent.spawn_bundle(menu_button_text(&assets, "QUIT"));
+                                    })
+                                    .insert(MenuButton::Quit);
+                            }
                         });
                 });
             })

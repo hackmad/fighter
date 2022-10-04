@@ -2,9 +2,6 @@
 
 use bevy::prelude::*;
 
-/// Gravity strength.
-pub(crate) const GRAVITY: f32 = 0.7;
-
 /// Window width.
 pub(crate) const WINDOW_WIDTH: f32 = 1024.0;
 

@@ -11,11 +11,14 @@ const PLAYER_SCALE: f32 = 2.75;
 /// Starting frame for idle animation.
 const IDLE_FRAME_START: usize = 32;
 
+/// Gravity strength.
+pub(crate) const GRAVITY: f32 = -9.8 * 250.0;
+
 /// Initial velocity for player jumps.
-const JUMP_VELOCITY: f32 = 20.0;
+const JUMP_VELOCITY: f32 = 12.0 * 100.0;
 
 /// Velocity for horizontal player movement.
-const HORIZ_VELOCITY: f32 = 5.0;
+const HORIZ_VELOCITY: f32 = 5.0 * 100.0;
 
 /// Collider alpha (used for displaying collider for debugging).
 const COLLIDER_ALPHA: f32 = 0.0;
@@ -406,6 +409,7 @@ fn game_play_input_system(
 
 /// Handle player movement based on velocity.
 fn movement_system(
+    time: Res<Time>,
     mut player_query: Query<(
         &Player,
         &mut CurrentState,
@@ -420,6 +424,7 @@ fn movement_system(
 ) {
     let mut new_velocities = [Vec2::default(); 2];
     let mut move_x = [false; 2];
+    let delta_time = time.delta_seconds();
 
     for (
         player,
@@ -433,7 +438,7 @@ fn movement_system(
     ) in &mut player_query
     {
         // Handle horizontal movement.
-        let new_x = transform.translation.x + velocity.x;
+        let new_x = transform.translation.x + velocity.x * delta_time;
         if new_x > crate::scene::SCENE_MIN_X && new_x < crate::scene::SCENE_MAX_X {
             transform.translation.x = new_x;
             move_x[player.index()] = true;
@@ -442,10 +447,10 @@ fn movement_system(
         }
 
         // Handle vertical movement.
-        transform.translation.y += velocity.y;
+        transform.translation.y += velocity.y * delta_time;
         if transform.translation.y > ground_y.0 {
             // Player is in the air keep decreasing velocity.
-            velocity.y -= GRAVITY;
+            velocity.y += GRAVITY * delta_time;
         } else if transform.translation.y <= ground_y.0 {
             // Player has hit the ground. Reset velocity and position.
             transform.translation.y = ground_y.0;
