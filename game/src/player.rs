@@ -458,7 +458,9 @@ fn movement_system(
                 // Once player is on ground move to idle state so player doesn't continue
                 // running or jumping.
                 if transform.translation.y <= ground_y.0 {
-                    current_state.0 = State::Idling;
+                    if !matches!(current_state.0, State::Dying) {
+                        current_state.0 = State::Idling;
+                    }
                     velocity.x = 0.0;
                     velocity.y = 0.0;
                     continue;
