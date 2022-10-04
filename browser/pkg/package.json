@@ -1,0 +1,16 @@
+{
+  "name": "browser",
+  "collaborators": [
+    "Ahmad Kabani <ahmadkabani@yahoo.com>"
+  ],
+  "version": "0.0.1",
+  "files": [
+    "browser_bg.wasm",
+    "browser.js",
+    "browser_bg.js",
+    "browser.d.ts"
+  ],
+  "module": "browser.js",
+  "types": "browser.d.ts",
+  "sideEffects": false
+}
