@@ -68,6 +68,12 @@ struct GameAssets {
     #[asset(texture_atlas(tile_size_x = 200.0, tile_size_y = 200.0, columns = 8, rows = 8))]
     #[asset(path = "images/player_two.png")]
     pub(crate) player_two_texture_atlas: Handle<TextureAtlas>,
+
+    #[asset(path = "images/return_key.png")]
+    pub(crate) return_key_image: Handle<Image>,
+
+    #[asset(path = "images/escape_key.png")]
+    pub(crate) escape_key_image: Handle<Image>,
 }
 
 /// Game states.

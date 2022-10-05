@@ -20,6 +20,7 @@ impl Plugin for GameOverPlugin {
         app.add_system(menu_button_interaction_system)
             .add_system(menu_button_press_system)
             .add_system_set(SystemSet::on_enter(GameState::GameOver).with_system(setup))
+            .add_system_set(SystemSet::on_update(GameState::GameOver).with_system(input_system))
             .add_system_set(SystemSet::on_exit(GameState::GameOver).with_system(cleanup));
     }
 }
@@ -71,6 +72,11 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>, health_query: Query<(&
                                 .spawn_bundle(menu_button())
                                 .with_children(|parent| {
                                     parent.spawn_bundle(menu_button_text(&assets, "CONTINUE"));
+                                    parent.spawn_bundle(ImageBundle {
+                                        image: UiImage(assets.return_key_image.clone()),
+                                        transform: Transform::from_scale(Vec3::new(0.5, 0.5, 0.5)),
+                                        ..default()
+                                    });
                                 })
                                 .insert(MenuButton::Continue);
                         });
@@ -80,22 +86,6 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>, health_query: Query<(&
     );
 
     commands.insert_resource(EntityData { entities });
-}
-
-/// Processes button press.
-fn menu_button_press_system(
-    buttons: Query<(&Interaction, &MenuButton), (Changed<Interaction>, With<Button>)>,
-    mut state: ResMut<State<GameState>>,
-) {
-    for (interaction, button) in buttons.iter() {
-        if *interaction == Interaction::Clicked {
-            match button {
-                MenuButton::Continue => state
-                    .set(GameState::MainMenu)
-                    .expect("Couldn't switch state to MainMenu"),
-            };
-        }
-    }
 }
 
 /// Create a message.
@@ -130,6 +120,32 @@ fn message_text(assets: &Res<GameAssets>, label: &str) -> TextBundle {
         ),
         ..default()
     };
+}
+
+/// Processes button press.
+fn menu_button_press_system(
+    buttons: Query<(&Interaction, &MenuButton), (Changed<Interaction>, With<Button>)>,
+    mut state: ResMut<State<GameState>>,
+) {
+    for (interaction, button) in buttons.iter() {
+        if *interaction == Interaction::Clicked {
+            match button {
+                MenuButton::Continue => state
+                    .set(GameState::MainMenu)
+                    .expect("Couldn't switch state to MainMenu"),
+            };
+        }
+    }
+}
+
+/// Handle keyboard input.
+fn input_system(mut keyboard_input: ResMut<Input<KeyCode>>, mut state: ResMut<State<GameState>>) {
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        state
+            .set(GameState::MainMenu)
+            .expect("Couldn't switch state to MainMenu");
+        keyboard_input.clear_just_pressed(KeyCode::Return);
+    }
 }
 
 /// Cleanup resources.

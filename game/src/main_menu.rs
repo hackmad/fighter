@@ -14,6 +14,7 @@ impl Plugin for MainMenuPlugin {
         app.add_system(menu_button_interaction_system)
             .add_system(menu_button_press_system)
             .add_system_set(SystemSet::on_enter(GameState::MainMenu).with_system(setup))
+            .add_system_set(SystemSet::on_update(GameState::MainMenu).with_system(input_system))
             .add_system_set(SystemSet::on_exit(GameState::MainMenu).with_system(cleanup));
     }
 }
@@ -48,14 +49,28 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
                                 .spawn_bundle(menu_button())
                                 .with_children(|parent| {
                                     parent.spawn_bundle(menu_button_text(&assets, "NEW GAME"));
+                                    parent.spawn_bundle(ImageBundle {
+                                        image: UiImage(assets.return_key_image.clone()),
+                                        transform: Transform::from_scale(Vec3::new(0.5, 0.5, 0.5)),
+                                        ..default()
+                                    });
                                 })
                                 .insert(MenuButton::Play);
 
                             if cfg!(feature = "native") {
+                                // In browser this does stop the game but it shows as frozen. So
+                                // best not to add it. User can just close the window/tab.
                                 parent
                                     .spawn_bundle(menu_button())
                                     .with_children(|parent| {
                                         parent.spawn_bundle(menu_button_text(&assets, "QUIT"));
+                                        parent.spawn_bundle(ImageBundle {
+                                            image: UiImage(assets.escape_key_image.clone()),
+                                            transform: Transform::from_scale(Vec3::new(
+                                                0.58, 0.58, 0.58,
+                                            )),
+                                            ..default()
+                                        });
                                     })
                                     .insert(MenuButton::Quit);
                             }
@@ -83,6 +98,23 @@ fn menu_button_press_system(
                 MenuButton::Quit => exit.send(AppExit),
             };
         }
+    }
+}
+
+/// Handle keyboard input.
+fn input_system(
+    mut keyboard_input: ResMut<Input<KeyCode>>,
+    mut state: ResMut<State<GameState>>,
+    mut exit: EventWriter<AppExit>,
+) {
+    if keyboard_input.just_pressed(KeyCode::Return) {
+        state
+            .set(GameState::InGame)
+            .expect("Couldn't switch state to InGame");
+        keyboard_input.clear_just_pressed(KeyCode::Return);
+    } else if cfg!(feature = "native") && keyboard_input.just_pressed(KeyCode::Escape) {
+        exit.send(AppExit);
+        keyboard_input.clear_just_pressed(KeyCode::Escape);
     }
 }
 
