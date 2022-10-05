@@ -31,7 +31,7 @@ const ATTACK_FRAMES: [usize; 2] = [4, 2];
 
 /// Attack damage of player. Player one has slow powerful attack while player two has quick weaker
 /// attack (based on number of frames of animation).
-const ATTACK_DAMAGES: [u16; 2] = [10_u16, 8_u16];
+const ATTACK_DAMAGES: [u8; 2] = [10_u8, 8_u8];
 
 lazy_static! {
     /// Frame ranges for player states (min, max).
@@ -457,11 +457,16 @@ fn movement_system(
             velocity.y = 0.0;
         }
 
+        // Check if player is dying.
+        if health.0 == 0 {
+            current_state.set_state(State::Dying);
+        }
+
         // Check if game over.
         match app_state.current() {
             GameState::GameOver => {
-                // Once player is on ground move to idle state so player doesn't continue
-                // running or jumping.
+                // Once player is on ground and not dead, move to idle state so player doesn't
+                // continue running or jumping.
                 if transform.translation.y <= ground_y.0 {
                     if !matches!(current_state.0, State::Dying) {
                         current_state.0 = State::Idling;
@@ -472,11 +477,6 @@ fn movement_system(
                 }
             }
             _ => (),
-        }
-
-        // Check if player is dying.
-        if health.0 == 0 {
-            current_state.set_state(State::Dying);
         }
 
         match current_state.0 {
@@ -585,7 +585,7 @@ fn collision_system(
         let (opponent_current_state, _opponent_previous_state, opponent_current_frame) =
             players[opponent];
         let (opponent_attack_box_pos, opponent_attack_box_size) = attack_boxes[opponent];
-        let opponent_attack_damage: u16 = ATTACK_DAMAGES[opponent];
+        let opponent_attack_damage = ATTACK_DAMAGES[opponent];
 
         match opponent_current_state {
             State::Attacking => {
@@ -603,11 +603,11 @@ fn collision_system(
                         current_state.set_state(State::TakingHit);
 
                         // Just in case damage is not a nice divisior of MAX_HEALTH.
-                        let mut new_health: i16 = health.0 as i16 - opponent_attack_damage as i16;
-                        if new_health < 0 {
-                            new_health = 0;
+                        if let Some(h) = health.0.checked_sub(opponent_attack_damage) {
+                            health.0 = h;
+                        } else {
+                            health.0 = 0;
                         }
-                        health.0 = new_health as u8;
                         health_update_events.send(HealthUpdateEvent::new(*player, health.0));
                     }
                 }
