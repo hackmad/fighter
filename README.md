@@ -7,6 +7,9 @@ Assets:
 - [Fighter Asset #1](https://luizmelo.itch.io/martial-hero)
 - [Fighter Asset #2](https://luizmelo.itch.io/martial-hero-2)
 - [m6x11 a 6px by 11px font by Daniel Linssen](https://managore.itch.io/m6x11)
+- [Melee sounds](https://opengameart.org/content/3-melee-sounds)
+- [Boss Battle #6 Metal](https://opengameart.org/content/boss-battle-6-metal)
+- [Adventure Intro Title](https://opengameart.org/content/adventure-intro-title-cinematic-epic)
 
 ## Building
 
@@ -127,3 +130,26 @@ NODE_OPTIONS=--openssl-legacy-provider npm run start
 ```
 
 Open the browser to the [http://localhost:8080](http://localhost:8080/)
+
+__NOTES:__
+
+By default browsers block autoplay and so there might be no sound. 
+
+Firefox: 
+- Under `Tools` menu click `Page Info`.
+- Click `Permissions` tab.
+- Under `Autoplay` uncheck `Use Default`
+- Check `Allow Audio and Video`.
+
+Safari:
+- Go to `Preferences`.
+- Click `Websites` tab.
+- On the left side click `Auto-Play`
+- Enable `Allow All Auto-Play` for `localhost`.
+
+Chrome:
+- Go to `Settings`.
+- On the left select `Privacy and security`.
+- Scroll down to `Additional content settings`.
+- Click `Sounds`
+- Under `Allowed to play sound` add `localhost`.

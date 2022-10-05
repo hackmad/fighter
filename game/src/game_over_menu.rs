@@ -5,6 +5,7 @@ use crate::{
     menu_root, GameAssets, GameState, Health, Player,
 };
 use bevy::prelude::*;
+use bevy_kira_audio::prelude::*;
 
 /// Message backround color.
 const MESSAGE_BACKGROUND_COLOR: Color = Color::rgba(0.05, 0.05, 0.05, 0.9);
@@ -149,8 +150,9 @@ fn input_system(mut keyboard_input: ResMut<Input<KeyCode>>, mut state: ResMut<St
 }
 
 /// Cleanup resources.
-fn cleanup(mut commands: Commands, entity_data: Res<EntityData>) {
+fn cleanup(mut commands: Commands, entity_data: Res<EntityData>, audio: Res<Audio>) {
     for entity in entity_data.entities.iter() {
         commands.entity(*entity).despawn_recursive();
     }
+    audio.stop();
 }

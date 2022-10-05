@@ -2,6 +2,7 @@
 
 use crate::{common::*, CountdownCompleteEvent, GameAssets, GameState, GROUND_Y};
 use bevy::{app::Plugin, prelude::*, sprite::collide_aabb::collide};
+use bevy_kira_audio::prelude::*;
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
@@ -28,6 +29,9 @@ const MAX_HEALTH: u8 = 100;
 
 /// Animation frame used to determine collisions a player's attack.
 const ATTACK_FRAMES: [usize; 2] = [4, 2];
+
+/// Animation frame used to determine audio for attack.
+const ATTACK_AUDIO_FRAMES: [usize; 2] = [3, 3];
 
 /// Attack damage of player. Player one has slow powerful attack while player two has quick weaker
 /// attack (based on number of frames of animation).
@@ -205,7 +209,9 @@ impl HealthUpdateEvent {
 }
 
 /// Setup the players.
-fn setup(mut commands: Commands, assets: Res<GameAssets>) {
+fn setup(mut commands: Commands, assets: Res<GameAssets>, audio: Res<Audio>) {
+    audio.play(assets.in_game_audio.clone()).looped();
+
     let mut entities: Vec<Entity> = Vec::new();
 
     // Player 1: Adjust player feet (Height=200, y-feet=122 => y-center=100 => y-offset=22).
@@ -630,6 +636,8 @@ fn animation_system(
         With<Player>,
     >,
     mut sprite_query: Query<(&Parent, &mut TextureAtlasSprite)>,
+    assets: Res<GameAssets>,
+    audio: Res<Audio>,
 ) {
     for (parent, mut sprite) in &mut sprite_query {
         let (player, current_state, mut animation_timer, mut current_frame) =
@@ -640,6 +648,17 @@ fn animation_system(
             let (frame, _looped) = next_frame(player, current_state.0, sprite.index);
             sprite.index = frame;
             current_frame.0 = frame;
+
+            if sprite.index == ATTACK_AUDIO_FRAMES[player.index()] {
+                match player {
+                    Player::One => {
+                        audio.play(assets.player_one_attack_audio.clone());
+                    }
+                    Player::Two => {
+                        audio.play(assets.player_two_attack_audio.clone());
+                    }
+                }
+            }
         }
     }
 }

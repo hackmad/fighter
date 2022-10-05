@@ -5,6 +5,7 @@ use crate::{
     menu_root, GameAssets, GameState,
 };
 use bevy::{app::AppExit, prelude::*};
+use bevy_kira_audio::prelude::*;
 
 /// Handles the main menu.
 pub struct MainMenuPlugin;
@@ -32,7 +33,9 @@ enum MenuButton {
 }
 
 /// Setup the main menu.
-fn setup(mut commands: Commands, assets: Res<GameAssets>) {
+fn setup(mut commands: Commands, assets: Res<GameAssets>, audio: Res<Audio>) {
+    audio.play(assets.main_menu_audio.clone()).looped();
+
     let mut entities: Vec<Entity> = Vec::new();
 
     entities.push(
@@ -119,8 +122,9 @@ fn input_system(
 }
 
 /// Cleanup resources.
-fn cleanup(mut commands: Commands, entity_data: Res<EntityData>) {
+fn cleanup(mut commands: Commands, entity_data: Res<EntityData>, audio: Res<Audio>) {
     for entity in entity_data.entities.iter() {
         commands.entity(*entity).despawn_recursive();
     }
+    audio.stop();
 }

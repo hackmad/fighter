@@ -12,6 +12,7 @@ mod utils;
 
 use bevy::{prelude::*, render::texture::ImageSettings, window::PresentMode};
 use bevy_asset_loader::prelude::*;
+use bevy_kira_audio::prelude::*;
 use common::*;
 use countdown_timer::*;
 use game_over_menu::*;
@@ -39,6 +40,7 @@ pub fn run() {
         )
         .add_state(GameState::AssetLoading)
         .add_plugins(DefaultPlugins)
+        .add_plugin(AudioPlugin)
         .add_plugin(MainMenuPlugin)
         .add_plugin(ScenePlugin)
         .add_plugin(PlayerPlugin)
@@ -74,6 +76,18 @@ struct GameAssets {
 
     #[asset(path = "images/escape_key.png")]
     pub(crate) escape_key_image: Handle<Image>,
+
+    #[asset(path = "audio/sword sound.wav")]
+    pub(crate) player_one_attack_audio: Handle<AudioSource>,
+
+    #[asset(path = "audio/melee sound.wav")]
+    pub(crate) player_two_attack_audio: Handle<AudioSource>,
+
+    #[asset(path = "audio/Adventure Theme Intro.wav")]
+    pub(crate) main_menu_audio: Handle<AudioSource>,
+
+    #[asset(path = "audio/Boss Battle 6 Metal V1.wav")]
+    pub(crate) in_game_audio: Handle<AudioSource>,
 }
 
 /// Game states.
