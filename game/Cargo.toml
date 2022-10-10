@@ -5,7 +5,7 @@ authors = ["Ahmad Kabani <ahmadkabani@yahoo.com>"]
 edition = "2021"
 
 [features]
-native = []
+desktop = []
 web = []
 
 [dependencies]

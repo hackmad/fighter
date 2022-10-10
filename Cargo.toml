@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2" # Bevy + wgpu need this!
-members = ["game", "browser", "native"]
+members = ["game", "browser", "desktop"]
 
 [profile.dev]
 opt-level = 1 # Small amount of optimization in debug mode

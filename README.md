@@ -1,5 +1,6 @@
 # Fighter
 
+A 2-player fighting game written in Rust with the Bevy game engine.
 Based on [JavaScript Fighting Game Tutorial with HTML Canvas](https://www.youtube.com/watch?v=vyqbNFMDRGQ)
 
 Assets:
@@ -19,27 +20,28 @@ __Notes:__
 - A clean build will take a long time due to compilation of the entire
   `bevy` engine.
 - The assets folder in the root of the project is symlinked into the
-  `native` project.
-- The assets folder needs to be copied to `native` and `browser/www` folders.
+  `desktop` project.
+- The assets folder needs to be copied to `destop` and `browser/www` folders.
   It is ignored in `.gitignore` for this reason.
 
 ## game 
 
 This is the shared library that houses the core game logic. It will be 
-built as part of the other projects which target different runtimes.
+built as part of the other projects which target different platforms 
+such as desktop and WebAssembly.
 
-## native
+## desktop
 
-This compiles a native binary for the game.
+This compiles a desktop binary for the game.
 
 ```bash
-cargo build -p native
+cargo build -p desktop
 ```
 
 To build release version:
 
 ```bash
-cargo build -p native --release
+cargo build -p desktop --release
 ```
 
 ## browser
@@ -107,11 +109,11 @@ npm install
 
 ## Running
 
-## native
+## desktop
 
 ```bash
-cp -r assets native/assets
-cargo run -p native
+cp -r assets desktop/assets
+cargo run -p desktop
 ```
 
 ## browser

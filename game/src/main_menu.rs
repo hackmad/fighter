@@ -60,7 +60,7 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>, audio: Res<Audio>) {
                                 })
                                 .insert(MenuButton::Play);
 
-                            if cfg!(feature = "native") {
+                            if cfg!(feature = "desktop") {
                                 // In browser this does stop the game but it shows as frozen. So
                                 // best not to add it. User can just close the window/tab.
                                 parent
@@ -115,7 +115,7 @@ fn input_system(
             .set(GameState::InGame)
             .expect("Couldn't switch state to InGame");
         keyboard_input.clear_just_pressed(KeyCode::Return);
-    } else if cfg!(feature = "native") && keyboard_input.just_pressed(KeyCode::Escape) {
+    } else if cfg!(feature = "desktop") && keyboard_input.just_pressed(KeyCode::Escape) {
         exit.send(AppExit);
         keyboard_input.clear_just_pressed(KeyCode::Escape);
     }
