@@ -93,6 +93,7 @@ impl Plugin for PlayerPlugin {
 }
 
 /// Player entities.
+#[derive(Resource)]
 struct EntityData {
     entities: Vec<Entity>,
 }
@@ -286,15 +287,14 @@ fn spawn_player(
     };
 
     commands
-        .spawn()
-        .insert(player)
+        .spawn(player)
         .insert(Health(MAX_HEALTH))
         .insert(CurrentState::default())
         .insert(PreviousState::default())
         .insert(Velocity(Vec3::new(0.0, 0.0, 0.0)))
         .insert(GroundY(player_pos.y))
         .insert(CurrentFrame(IDLE_FRAME_START))
-        .insert_bundle(SpatialBundle {
+        .insert(SpatialBundle {
             visibility: Visibility { is_visible: true },
             transform: Transform {
                 translation: player_pos,
@@ -303,9 +303,12 @@ fn spawn_player(
             ..default()
         })
         .insert(keys)
-        .insert(AnimationTimer(Timer::from_seconds(0.1, true)))
+        .insert(AnimationTimer(Timer::from_seconds(
+            0.1,
+            TimerMode::Repeating,
+        )))
         .with_children(|player| {
-            player.spawn().insert_bundle(SpriteSheetBundle {
+            player.spawn(SpriteSheetBundle {
                 texture_atlas: player_atlas_handle,
                 sprite: TextureAtlasSprite {
                     index: IDLE_FRAME_START, // Idling frame start. Avoids starting at Attacking frame.
@@ -319,10 +322,9 @@ fn spawn_player(
             });
 
             player
-                .spawn()
-                .insert(ColliderBox)
+                .spawn(ColliderBox)
                 .insert(GroundY(collider_box_pos.y))
-                .insert_bundle(SpriteBundle {
+                .insert(SpriteBundle {
                     sprite: Sprite {
                         color: collider_box_color,
                         ..default()
@@ -336,10 +338,9 @@ fn spawn_player(
                 });
 
             player
-                .spawn()
-                .insert(AttackBox)
+                .spawn(AttackBox)
                 .insert(GroundY(attack_box_pos.y))
-                .insert_bundle(SpriteBundle {
+                .insert(SpriteBundle {
                     sprite: Sprite {
                         color: attack_box_color,
                         ..default()

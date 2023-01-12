@@ -17,18 +17,14 @@ Assets:
 This project uses Cargo workspaces and split into 2 library and one binary:
 
 __Notes:__
-- A clean build will take a long time due to compilation of the entire
-  `bevy` engine.
-- The assets folder in the root of the project is symlinked into the
-  `desktop` project.
-- The assets folder needs to be copied to `destop` and `browser/www` folders.
-  It is ignored in `.gitignore` for this reason.
+- A clean build will take a long time due to compilation of the entire `bevy` engine.
+- The assets folder in the root of the project is symlinked into the `desktop` project.
+- The assets folder needs to be copied to `destop` and `browser/www` folders. It is ignored in `.gitignore` for this reason.
 
 ## game 
 
-This is the shared library that houses the core game logic. It will be 
-built as part of the other projects which target different platforms 
-such as desktop and WebAssembly.
+This is the shared library that houses the core game logic. It will be built as part of the other projects which target
+different platforms such as desktop and WebAssembly.
 
 ## desktop
 
@@ -46,9 +42,8 @@ cargo build -p desktop --release
 
 ## browser
 
-This is for the WebAssembly game and uses [wasm-pack](https://github.com/rustwasm/wasm-pack).
-It can't be build form the workspace root so you have to change to the
-project folder first.
+This is for the WebAssembly game and uses [wasm-pack](https://github.com/rustwasm/wasm-pack). It can't be build form the
+workspace root so you have to change to the project folder first.
 
 __NOTE:__ This relies on `Node 16.13.0 LTS`.
 
@@ -123,15 +118,14 @@ cd browser/www
 npm run start
 ```
 
-If you are using a newer verison of Node, then you might need to add
-`NODE_OPTIONS` like this:
+If you are using a newer verison of Node, then you might need to add `NODE_OPTIONS` like this:
 
 ```bash
 cd browser/www
 NODE_OPTIONS=--openssl-legacy-provider npm run start
 ```
 
-Open the browser to the [http://localhost:8080](http://localhost:8080/)
+Open the browser to the [http://localhost:8080](http://localhost:8080/).
 
 __NOTES:__
 

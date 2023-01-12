@@ -23,18 +23,18 @@ pub(crate) const MENU_BUTTON_TEXT_COLOR: Color = Color::WHITE;
 
 /// Handle button interactions.
 pub(crate) fn menu_button_interaction_system(
-    mut buttons: Query<(&Interaction, &mut UiColor), (Changed<Interaction>, With<Button>)>,
+    mut buttons: Query<(&Interaction, &mut BackgroundColor), (Changed<Interaction>, With<Button>)>,
 ) {
     for (interaction, mut color) in buttons.iter_mut() {
         match *interaction {
             Interaction::Clicked => {
-                *color = UiColor(MENU_BUTTON_CLICKED_COLOR);
+                *color = BackgroundColor(MENU_BUTTON_CLICKED_COLOR);
             }
             Interaction::Hovered => {
-                *color = UiColor(MENU_BUTTON_HOVER_COLOR);
+                *color = BackgroundColor(MENU_BUTTON_HOVER_COLOR);
             }
             Interaction::None => {
-                *color = UiColor(MENU_BUTTON_COLOR);
+                *color = BackgroundColor(MENU_BUTTON_COLOR);
             }
         }
     }
@@ -49,7 +49,7 @@ pub(crate) fn menu_root() -> NodeBundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        color: UiColor(Color::NONE),
+        background_color: BackgroundColor(Color::NONE),
         ..default()
     }
 }
@@ -62,7 +62,7 @@ pub(crate) fn menu_border() -> NodeBundle {
             border: UiRect::all(Val::Px(8.0)),
             ..default()
         },
-        color: UiColor(MENU_BORDER_COLOR),
+        background_color: BackgroundColor(MENU_BORDER_COLOR),
         ..default()
     }
 }
@@ -78,7 +78,7 @@ pub(crate) fn menu_background() -> NodeBundle {
             padding: UiRect::all(Val::Px(5.0)),
             ..default()
         },
-        color: UiColor(MENU_BACKGROUND_COLOR),
+        background_color: BackgroundColor(MENU_BACKGROUND_COLOR),
         ..default()
     }
 }
@@ -92,7 +92,7 @@ pub(crate) fn menu_button() -> ButtonBundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        color: UiColor(MENU_BUTTON_COLOR),
+        background_color: BackgroundColor(MENU_BUTTON_COLOR),
         ..default()
     }
 }

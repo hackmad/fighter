@@ -21,6 +21,7 @@ impl Plugin for MainMenuPlugin {
 }
 
 /// Main menu entities.
+#[derive(Resource)]
 struct EntityData {
     entities: Vec<Entity>,
 }
@@ -40,44 +41,42 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>, audio: Res<Audio>) {
 
     entities.push(
         commands
-            .spawn_bundle(menu_root())
+            .spawn(menu_root())
             .with_children(|parent| {
                 // left vertical fill (border)
-                parent.spawn_bundle(menu_border()).with_children(|parent| {
+                parent.spawn(menu_border()).with_children(|parent| {
                     // left vertical fill (content)
-                    parent
-                        .spawn_bundle(menu_background())
-                        .with_children(|parent| {
+                    parent.spawn(menu_background()).with_children(|parent| {
+                        if cfg!(feature = "desktop") {
+                            // In browser this does stop the game but it shows as frozen. So
+                            // best not to add it. User can just close the window/tab.
                             parent
-                                .spawn_bundle(menu_button())
+                                .spawn(menu_button())
                                 .with_children(|parent| {
-                                    parent.spawn_bundle(menu_button_text(&assets, "NEW GAME"));
-                                    parent.spawn_bundle(ImageBundle {
-                                        image: UiImage(assets.return_key_image.clone()),
-                                        transform: Transform::from_scale(Vec3::new(0.5, 0.5, 0.5)),
+                                    parent.spawn(menu_button_text(&assets, "QUIT"));
+                                    parent.spawn(ImageBundle {
+                                        image: UiImage(assets.escape_key_image.clone()),
+                                        transform: Transform::from_scale(Vec3::new(
+                                            0.58, 0.58, 0.58,
+                                        )),
                                         ..default()
                                     });
                                 })
-                                .insert(MenuButton::Play);
+                                .insert(MenuButton::Quit);
+                        }
 
-                            if cfg!(feature = "desktop") {
-                                // In browser this does stop the game but it shows as frozen. So
-                                // best not to add it. User can just close the window/tab.
-                                parent
-                                    .spawn_bundle(menu_button())
-                                    .with_children(|parent| {
-                                        parent.spawn_bundle(menu_button_text(&assets, "QUIT"));
-                                        parent.spawn_bundle(ImageBundle {
-                                            image: UiImage(assets.escape_key_image.clone()),
-                                            transform: Transform::from_scale(Vec3::new(
-                                                0.58, 0.58, 0.58,
-                                            )),
-                                            ..default()
-                                        });
-                                    })
-                                    .insert(MenuButton::Quit);
-                            }
-                        });
+                        parent
+                            .spawn(menu_button())
+                            .with_children(|parent| {
+                                parent.spawn(menu_button_text(&assets, "NEW GAME"));
+                                parent.spawn(ImageBundle {
+                                    image: UiImage(assets.return_key_image.clone()),
+                                    transform: Transform::from_scale(Vec3::new(0.5, 0.5, 0.5)),
+                                    ..default()
+                                });
+                            })
+                            .insert(MenuButton::Play);
+                    });
                 });
             })
             .id(),

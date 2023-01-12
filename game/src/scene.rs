@@ -36,6 +36,7 @@ impl Plugin for ScenePlugin {
 }
 
 /// Scene entities.
+#[derive(Resource)]
 struct EntityData {
     entities: Vec<Entity>,
 }
@@ -49,12 +50,12 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     let mut entities: Vec<Entity> = Vec::new();
 
     // Setup camera.
-    entities.push(commands.spawn_bundle(Camera2dBundle::default()).id());
+    entities.push(commands.spawn(Camera2dBundle::default()).id());
 
     // Background sprite.
     entities.push(
         commands
-            .spawn_bundle(SpriteBundle {
+            .spawn(SpriteBundle {
                 texture: assets.background_image.clone(),
                 transform: Transform::from_xyz(0.0, 0.0, 0.0)
                     .with_scale(Vec3::new(BG_SCALE, BG_SCALE, BG_Z)),
@@ -66,9 +67,8 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     // Animated shop sprite.
     entities.push(
         commands
-            .spawn()
-            .insert(Shop)
-            .insert_bundle(SpriteSheetBundle {
+            .spawn(Shop)
+            .insert(SpriteSheetBundle {
                 texture_atlas: assets.shop_texture_atlas.clone(),
                 transform: Transform {
                     translation: Vec3::new(280.0, -28.5, BG_Z + 0.01),
@@ -77,7 +77,10 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
                 },
                 ..default()
             })
-            .insert(AnimationTimer(Timer::from_seconds(0.1, true)))
+            .insert(AnimationTimer(Timer::from_seconds(
+                0.1,
+                TimerMode::Repeating,
+            )))
             .id(),
     );
 

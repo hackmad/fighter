@@ -10,7 +10,7 @@ mod player;
 mod scene;
 mod utils;
 
-use bevy::{prelude::*, render::texture::ImageSettings, window::PresentMode};
+use bevy::{prelude::*, window::PresentMode};
 use bevy_asset_loader::prelude::*;
 use bevy_kira_audio::prelude::*;
 use common::*;
@@ -25,21 +25,30 @@ use scene::*;
 // Create the app.
 pub fn run() {
     App::new()
-        .insert_resource(ImageSettings::default_nearest())
-        .insert_resource(WindowDescriptor {
-            title: "Fighter".to_string(),
-            width: WINDOW_WIDTH,
-            height: WINDOW_HEIGHT,
-            present_mode: PresentMode::AutoNoVsync,
-            ..default()
-        })
         .add_loading_state(
             LoadingState::new(GameState::AssetLoading)
                 .continue_to_state(GameState::MainMenu)
                 .with_collection::<GameAssets>(),
         )
         .add_state(GameState::AssetLoading)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(
+            DefaultPlugins
+                .set(ImagePlugin::default_nearest())
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "Fighter".to_string(),
+                        width: WINDOW_WIDTH,
+                        height: WINDOW_HEIGHT,
+                        present_mode: PresentMode::AutoNoVsync,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .set(AssetPlugin {
+                    watch_for_changes: true,
+                    ..default()
+                }),
+        )
         .add_plugin(AudioPlugin)
         .add_plugin(MainMenuPlugin)
         .add_plugin(ScenePlugin)
@@ -51,7 +60,7 @@ pub fn run() {
 }
 
 /// Game assets
-#[derive(AssetCollection)]
+#[derive(AssetCollection, Resource)]
 struct GameAssets {
     #[asset(path = "fonts/m6x11.ttf")]
     pub(crate) font: Handle<Font>,

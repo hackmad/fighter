@@ -10,10 +10,10 @@ web = []
 
 [dependencies]
 lazy_static = "1.4.0"
-wasm-bindgen = "0.2.63"
+wasm-bindgen = "0.2.83"
 
 [dependencies.bevy]
-version = "0.8.1"
+version = "0.9"
 default-features = false
 # Because we ue bevy_kira_audio we cannot use `bevy_audio` and `vorbis`.
 # These are the remaining default features.
@@ -31,13 +31,13 @@ features = [
 ]
 
 [dependencies.bevy_asset_loader]
-version = "0.12.1"
+version = "0.14"
 features = [
   "2d"
 ]
 
 [dependencies.bevy_kira_audio]
-version = "0.12.0"
+version = "0.13"
 features = [
   "wav",
   "flac",

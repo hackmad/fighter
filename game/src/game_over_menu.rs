@@ -27,6 +27,7 @@ impl Plugin for GameOverPlugin {
 }
 
 /// Countdown timer entities.
+#[derive(Resource)]
 struct EntityData {
     entities: Vec<Entity>,
 }
@@ -57,30 +58,28 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>, health_query: Query<(&
 
     entities.push(
         commands
-            .spawn_bundle(menu_root())
+            .spawn(menu_root())
             .with_children(|parent| {
                 // left vertical fill (border)
-                parent.spawn_bundle(menu_border()).with_children(|parent| {
+                parent.spawn(menu_border()).with_children(|parent| {
                     // left vertical fill (content)
-                    parent
-                        .spawn_bundle(menu_background())
-                        .with_children(|parent| {
-                            parent.spawn_bundle(message()).with_children(|parent| {
-                                parent.spawn_bundle(message_text(&assets, msg));
-                            });
+                    parent.spawn(menu_background()).with_children(|parent| {
+                        parent
+                            .spawn(menu_button())
+                            .with_children(|parent| {
+                                parent.spawn(menu_button_text(&assets, "CONTINUE"));
+                                parent.spawn(ImageBundle {
+                                    image: UiImage(assets.return_key_image.clone()),
+                                    transform: Transform::from_scale(Vec3::new(0.5, 0.5, 0.5)),
+                                    ..default()
+                                });
+                            })
+                            .insert(MenuButton::Continue);
 
-                            parent
-                                .spawn_bundle(menu_button())
-                                .with_children(|parent| {
-                                    parent.spawn_bundle(menu_button_text(&assets, "CONTINUE"));
-                                    parent.spawn_bundle(ImageBundle {
-                                        image: UiImage(assets.return_key_image.clone()),
-                                        transform: Transform::from_scale(Vec3::new(0.5, 0.5, 0.5)),
-                                        ..default()
-                                    });
-                                })
-                                .insert(MenuButton::Continue);
+                        parent.spawn(message()).with_children(|parent| {
+                            parent.spawn(message_text(&assets, msg));
                         });
+                    });
                 });
             })
             .id(),
@@ -98,7 +97,7 @@ fn message() -> NodeBundle {
             align_items: AlignItems::Center,
             ..default()
         },
-        color: UiColor(MESSAGE_BACKGROUND_COLOR),
+        background_color: BackgroundColor(MESSAGE_BACKGROUND_COLOR),
         ..default()
     }
 }

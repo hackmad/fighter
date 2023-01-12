@@ -19,6 +19,7 @@ impl Plugin for CountdownTimerPlugin {
 }
 
 /// Countdown timer entities.
+#[derive(Resource)]
 struct EntityData {
     entities: Vec<Entity>,
 }
@@ -52,8 +53,7 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     // Background of countdown timer.
     entities.push(
         commands
-            .spawn()
-            .insert_bundle(SpriteBundle {
+            .spawn(SpriteBundle {
                 sprite: Sprite {
                     color: Color::WHITE,
                     ..default()
@@ -70,8 +70,7 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
 
     entities.push(
         commands
-            .spawn()
-            .insert_bundle(SpriteBundle {
+            .spawn(SpriteBundle {
                 sprite: Sprite {
                     color: Color::DARK_GRAY,
                     ..default()
@@ -89,12 +88,11 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
     // The timer.
     entities.push(
         commands
-            .spawn()
-            .insert_bundle(NodeBundle {
+            .spawn(NodeBundle {
                 style: Style {
                     size: Size::new(Val::Percent(100.0), Val::Percent(10.0)),
                     position: UiRect {
-                        top: Val::Px(-482.5),
+                        top: Val::Px(35.0),
                         left: Val::Px(0.0),
                         ..default()
                     },
@@ -102,12 +100,12 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
                     align_items: AlignItems::Center,
                     ..Default::default()
                 },
-                color: UiColor(Color::NONE),
+                background_color: BackgroundColor(Color::NONE),
                 ..default()
             })
             .with_children(|timer| {
                 timer
-                    .spawn_bundle(TextBundle {
+                    .spawn(TextBundle {
                         text: Text::from_section(
                             format!("{}", COUNTDOWN_TIMER_START),
                             TextStyle {
@@ -123,7 +121,10 @@ fn setup(mut commands: Commands, assets: Res<GameAssets>) {
                         },
                         ..default()
                     })
-                    .insert(AnimationTimer(Timer::from_seconds(1.0, true)))
+                    .insert(AnimationTimer(Timer::from_seconds(
+                        1.0,
+                        TimerMode::Repeating,
+                    )))
                     .insert(CountdownTimer::default());
             })
             .id(),

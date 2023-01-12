@@ -28,6 +28,7 @@ impl Plugin for HealthPlugin {
 }
 
 /// Health bar entities.
+#[derive(Resource)]
 struct EntityData {
     entities: Vec<Entity>,
 }
@@ -49,8 +50,7 @@ fn setup(mut commands: Commands) {
         // Background of health bar.
         entities.push(
             commands
-                .spawn()
-                .insert_bundle(SpriteBundle {
+                .spawn(SpriteBundle {
                     sprite: Sprite {
                         color: Color::WHITE,
                         ..default()
@@ -68,8 +68,7 @@ fn setup(mut commands: Commands) {
         // Damage reveal for health bar.
         entities.push(
             commands
-                .spawn()
-                .insert_bundle(SpriteBundle {
+                .spawn(SpriteBundle {
                     sprite: Sprite {
                         color: Color::RED,
                         ..default()
@@ -87,10 +86,9 @@ fn setup(mut commands: Commands) {
         // Health bar.
         entities.push(
             commands
-                .spawn()
-                .insert(HealthBar::default())
+                .spawn(HealthBar::default())
                 .insert(player)
-                .insert_bundle(SpriteBundle {
+                .insert(SpriteBundle {
                     sprite: Sprite {
                         color: Color::rgb(0.502, 0.549, 0.984),
                         ..default()
